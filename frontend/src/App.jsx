@@ -1,43 +1,126 @@
 import { useState } from "react";
 
-import Dashboard from "./pages/Dashboard.jsx";
-import Farm from "./pages/Farm.jsx";
-import Irrigation from "./pages/Irrigation.jsx";
-import Energy from "./pages/Energy.jsx";
-import AIAssistant from "./pages/AIAssistant.jsx";
-import Analytics from "./pages/Analytics.jsx";
-import Alerts from "./pages/Alerts.jsx";
-import Profile from "./pages/Profile.jsx";
+import Dashboard from "./pages/Dashboard";
+import Farm from "./pages/Farm";
+import Irrigation from "./pages/irrigation";
+import Energy from "./pages/Energy";
+import AIAssistant from "./pages/AIAssistant";
+import Analytics from "./pages/Analytics";
+import Alerts from "./pages/Alerts";
+import Profile from "./pages/Profile";
+import SensorSimulator from "./pages/SensorSimulator";
+import Login from "./pages/Login";
+
+import { useFarm } from "./context/FarmContext";
+import { useAuth } from "./context/AuthContext";
 
 function App() {
-  const [activePage, setActivePage] = useState("Dashboard");
+  const [currentPage, setCurrentPage] =
+    useState("Dashboard");
 
-  const menuItems = [
-    "Dashboard",
-    "Farm Setup",
-    "Irrigation",
-    "Energy Management",
-    "AI Farm Assistant",
-    "Analytics",
-    "Alerts",
-    "Profile",
+  const {
+    backendOnline,
+  } = useFarm();
+
+  const {
+    isAuthenticated,
+    loading: authLoading,
+  } = useAuth();
+
+  const navigationGroups = [
+    {
+      title: "Overview",
+      items: [
+        {
+          label: "Dashboard",
+          page: "Dashboard",
+        },
+      ],
+    },
+    {
+      title: "Farm",
+      items: [
+        {
+          label: "Farm Setup",
+          page: "Farm",
+        },
+        {
+          label: "Irrigation",
+          page: "Irrigation",
+        },
+        {
+          label: "Sensor Simulator",
+          page: "SensorSimulator",
+        },
+      ],
+    },
+    {
+      title: "Energy",
+      items: [
+        {
+          label: "Energy Management",
+          page: "Energy",
+        },
+      ],
+    },
+    {
+      title: "Intelligence",
+      items: [
+        {
+          label: "AI Farm Assistant",
+          page: "AIAssistant",
+        },
+        {
+          label: "Analytics",
+          page: "Analytics",
+        },
+        {
+          label: "Alerts",
+          page: "Alerts",
+        },
+      ],
+    },
+    {
+      title: "System",
+      items: [
+        {
+          label: "Profile",
+          page: "Profile",
+        },
+      ],
+    },
   ];
 
+  const pageTitles = {
+    Dashboard: "Dashboard",
+    Farm: "Farm Setup",
+    Irrigation: "Irrigation",
+    SensorSimulator: "Sensor Simulator",
+    Energy: "Energy Management",
+    AIAssistant: "AI Farm Assistant",
+    Analytics: "Analytics",
+    Alerts: "Alerts",
+    Profile: "Profile",
+  };
+
   const renderPage = () => {
-    switch (activePage) {
+    switch (currentPage) {
       case "Dashboard":
         return <Dashboard />;
 
-      case "Farm Setup":
+      case "Farm":
         return <Farm />;
 
       case "Irrigation":
         return <Irrigation />;
 
-      case "Energy Management":
+      case "SensorSimulator":
+        return <SensorSimulator />;
+
+      case "Energy":
         return <Energy />;
 
-      case "AI Farm Assistant":
+      case "AIAssistant":
         return <AIAssistant />;
 
       case "Analytics":
@@ -54,49 +137,243 @@ function App() {
     }
   };
 
-  return (
-    <div className="app">
-      <aside className="sidebar">
-        <div className="logo">
-          <h2>AgriPower AI</h2>
-          <p>Farm Intelligence</p>
-        </div>
-
-        <nav>
-          {menuItems.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={
-                activePage === item
-                  ? "nav-button active"
-                  : "nav-button"
-              }
-              onClick={() => setActivePage(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      <main className="main-content">
-        <header className="topbar">
-          <div>
-            <h1>{activePage}</h1>
-            <p>
-              Energy and water intelligence for sustainable farming
-            </p>
+  if (authLoading) {
+    return (
+      <div className="auth-loading">
+        <div className="auth-loading-card">
+          <div className="auth-loading-mark">
+            AP
           </div>
 
-          <div className="status">
-            System Online
+          <div>
+            <strong>
+              AgriPower AI
+            </strong>
+
+            <span>
+              Loading secure workspace...
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <div className="sidebar-brand">
+            <div className="sidebar-brand-mark">
+              AP
+            </div>
+
+            <div className="sidebar-brand-text">
+              <div className="sidebar-brand-title">
+                AgriPower AI
+              </div>
+
+              <div className="sidebar-brand-subtitle">
+                Sustainable farm intelligence
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="farm-mini-card">
+          <div className="farm-mini-label">
+            ACTIVE FARM
+          </div>
+
+          <div className="farm-mini-name">
+            Green Valley Farm
+          </div>
+
+          <div className="farm-mini-location">
+            Karnataka, India
+          </div>
+
+          <div className="farm-mini-status">
+            <span
+              className={`status-dot ${
+                backendOnline ? "online" : ""
+              }`}
+            />
+
+            <span>
+              {backendOnline
+                ? "System Online"
+                : "System Offline"}
+            </span>
+          </div>
+        </div>
+
+        <nav className="sidebar-nav">
+          {navigationGroups.map((group) => (
+            <div
+              className="nav-section"
+              key={group.title}
+            >
+              <div className="nav-section-title">
+                {group.title}
+              </div>
+
+              {group.items.map((item) => {
+                const isActive =
+                  currentPage === item.page;
+
+                return (
+                  <button
+                    key={item.page}
+                    type="button"
+                    className={`nav-item ${
+                      isActive ? "active" : ""
+                    }`}
+                    onClick={() =>
+                      setCurrentPage(item.page)
+                    }
+                  >
+                    <span className="nav-indicator" />
+
+                    <span>
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-footer">
+          <div className="system-health">
+            <div className="system-health-top">
+              <span>
+                System Health
+              </span>
+
+              <span className="health-value">
+                {backendOnline
+                  ? "Healthy"
+                  : "Offline"}
+              </span>
+            </div>
+
+            <div className="health-bar">
+              <span
+                style={{
+                  width: backendOnline
+                    ? "100%"
+                    : "25%",
+                }}
+              />
+            </div>
+
+            <div className="system-health-meta">
+              <span>
+                Backend
+              </span>
+
+              <span>
+                {backendOnline
+                  ? "Connected"
+                  : "Disconnected"}
+              </span>
+            </div>
+          </div>
+
+          <div className="sidebar-version">
+            AgriPower AI v1.0
+          </div>
+        </div>
+      </aside>
+
+      <main className="main-area">
+        <header className="topbar">
+          <div className="topbar-left">
+            <div className="breadcrumb">
+              <span>
+                Farm Intelligence
+              </span>
+
+              <span className="breadcrumb-divider">
+                /
+              </span>
+
+              <strong>
+                {pageTitles[currentPage]}
+              </strong>
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            <div className="live-indicator">
+              <span
+                className={`status-dot ${
+                  backendOnline
+                    ? "online"
+                    : ""
+                }`}
+              />
+
+              <span>
+                {backendOnline
+                  ? "System Online"
+                  : "System Offline"}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              className="topbar-button"
+              onClick={() =>
+                setCurrentPage("Alerts")
+              }
+              aria-label="Open alerts"
+            >
+              <span className="notification-icon">
+                !
+              </span>
+
+              <span className="notification-badge">
+                3
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className="topbar-button profile-chip"
+              onClick={() =>
+                setCurrentPage("Profile")
+              }
+              aria-label="Open profile"
+            >
+              <span className="profile-avatar">
+                GV
+              </span>
+
+              <span className="profile-chip-info">
+                <strong>
+                  Farm Admin
+                </strong>
+
+                <span>
+                  Green Valley
+                </span>
+              </span>
+            </button>
           </div>
         </header>
 
-        <section className="page-content">
-          {renderPage()}
-        </section>
+        <div className="content-wrapper">
+          <div className="page-container">
+            {renderPage()}
+          </div>
+        </div>
       </main>
     </div>
   );

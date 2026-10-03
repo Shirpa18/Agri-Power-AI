@@ -1,324 +1,303 @@
-import { useState } from "react";
+import React from "react";
+import { useFarm } from "../context/FarmContext";
 
 function Profile() {
-  const [saved, setSaved] = useState(false);
+  const {
+    farm,
+    backendOnline,
+  } = useFarm();
 
-  const [profile, setProfile] = useState({
-    name: "Farm Administrator",
-    phone: "+91 98765 43210",
-    email: "farmer@example.com",
-    language: "English",
-    notifications: true,
-    irrigationAlerts: true,
-    energyAlerts: true,
-    weatherAlerts: true,
-    autoRecommendations: true,
-    voiceAssistant: false,
-  });
+  const farmName =
+    farm?.name || "Green Valley Farm";
 
-  const updateField = (field, value) => {
-    setProfile((current) => ({
-      ...current,
-      [field]: value,
-    }));
-    setSaved(false);
-  };
-
-  const handleSave = (event) => {
-    event.preventDefault();
-    setSaved(true);
-  };
+  const location =
+    farm?.location || "Karnataka, India";
 
   return (
     <div className="profile-page">
-      <div className="page-heading">
+      <section className="profile-header">
         <div>
-          <span className="section-label">ACCOUNT & PREFERENCES</span>
-          <h2>Profile</h2>
+          <div className="profile-overline">
+            SYSTEM PROFILE
+          </div>
+
+          <h1>Profile & system</h1>
+
           <p>
-            Manage your farmer profile, language, alerts and AI preferences.
+            Manage the AgriPower AI workspace and
+            review the current system configuration.
           </p>
         </div>
 
-        <div className="setup-status">
-          <span className="status-dot"></span>
-          Account Active
+        <div className="profile-system-status">
+          <span
+            className={`profile-status-dot ${
+              backendOnline ? "online" : ""
+            }`}
+          />
+
+          <div>
+            <span>Backend status</span>
+
+            <strong>
+              {backendOnline
+                ? "Connected"
+                : "Disconnected"}
+            </strong>
+          </div>
         </div>
-      </div>
+      </section>
 
-      {saved && (
-        <div className="save-message">
-          Profile preferences saved successfully.
-        </div>
-      )}
-
-      <form onSubmit={handleSave}>
-        <div className="profile-layout">
-          <section className="panel profile-card">
-            <div className="profile-avatar">FA</div>
-
-            <h3>{profile.name}</h3>
-            <p>Farm Administrator</p>
-
-            <div className="profile-location">
-              Karnataka, India
+      <section className="profile-main-grid">
+        <div className="profile-panel">
+          <div className="profile-panel-header">
+            <div className="profile-user-avatar">
+              GV
             </div>
 
-            <div className="profile-divider"></div>
+            <div>
+              <h2>Farm Administrator</h2>
 
-            <div className="profile-status-row">
-              <span>Farm System</span>
-              <strong className="online-text">Online</strong>
+              <p>
+                Green Valley Farm
+              </p>
+            </div>
+          </div>
+
+          <div className="profile-information">
+            <div>
+              <span>Role</span>
+              <strong>Farm Administrator</strong>
             </div>
 
-            <div className="profile-status-row">
-              <span>Sensor Network</span>
-              <strong className="online-text">Connected</strong>
+            <div>
+              <span>Farm</span>
+              <strong>{farmName}</strong>
             </div>
 
-            <div className="profile-status-row">
-              <span>AI Assistant</span>
-              <strong className="online-text">Ready</strong>
+            <div>
+              <span>Location</span>
+              <strong>{location}</strong>
             </div>
-          </section>
 
-          <div className="profile-main">
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h3>Personal Information</h3>
-                  <p>
-                    Basic contact information for your AgriPower AI account.
-                  </p>
-                </div>
-              </div>
-
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Full Name</label>
-                  <input
-                    type="text"
-                    value={profile.name}
-                    onChange={(e) =>
-                      updateField("name", e.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Phone Number</label>
-                  <input
-                    type="tel"
-                    value={profile.phone}
-                    onChange={(e) =>
-                      updateField("phone", e.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) =>
-                      updateField("email", e.target.value)
-                    }
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Preferred Language</label>
-                  <select
-                    value={profile.language}
-                    onChange={(e) =>
-                      updateField("language", e.target.value)
-                    }
-                  >
-                    <option>English</option>
-                    <option>Kannada</option>
-                    <option>Hindi</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h3>Notification Preferences</h3>
-                  <p>
-                    Choose which farm events should generate notifications.
-                  </p>
-                </div>
-              </div>
-
-              <div className="preference-list">
-                <label className="preference-row">
-                  <div>
-                    <strong>Farm Notifications</strong>
-                    <span>
-                      Receive important updates from AgriPower AI.
-                    </span>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={profile.notifications}
-                    onChange={(e) =>
-                      updateField("notifications", e.target.checked)
-                    }
-                  />
-                </label>
-
-                <label className="preference-row">
-                  <div>
-                    <strong>Irrigation Alerts</strong>
-                    <span>
-                      Get notified when irrigation is recommended.
-                    </span>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={profile.irrigationAlerts}
-                    onChange={(e) =>
-                      updateField(
-                        "irrigationAlerts",
-                        e.target.checked
-                      )
-                    }
-                  />
-                </label>
-
-                <label className="preference-row">
-                  <div>
-                    <strong>Energy Alerts</strong>
-                    <span>
-                      Receive solar, battery and grid notifications.
-                    </span>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={profile.energyAlerts}
-                    onChange={(e) =>
-                      updateField("energyAlerts", e.target.checked)
-                    }
-                  />
-                </label>
-
-                <label className="preference-row">
-                  <div>
-                    <strong>Weather Alerts</strong>
-                    <span>
-                      Get notified about rain and weather changes.
-                    </span>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={profile.weatherAlerts}
-                    onChange={(e) =>
-                      updateField("weatherAlerts", e.target.checked)
-                    }
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section className="panel">
-              <div className="panel-header">
-                <div>
-                  <h3>AI Preferences</h3>
-                  <p>
-                    Control how AgriPower AI interacts with your farm.
-                  </p>
-                </div>
-              </div>
-
-              <div className="preference-list">
-                <label className="preference-row">
-                  <div>
-                    <strong>Automatic Recommendations</strong>
-                    <span>
-                      Allow AI to continuously generate irrigation and energy
-                      recommendations.
-                    </span>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={profile.autoRecommendations}
-                    onChange={(e) =>
-                      updateField(
-                        "autoRecommendations",
-                        e.target.checked
-                      )
-                    }
-                  />
-                </label>
-
-                <label className="preference-row">
-                  <div>
-                    <strong>Voice Assistant</strong>
-                    <span>
-                      Enable voice interaction for future farmer assistance.
-                    </span>
-                  </div>
-
-                  <input
-                    type="checkbox"
-                    checked={profile.voiceAssistant}
-                    onChange={(e) =>
-                      updateField(
-                        "voiceAssistant",
-                        e.target.checked
-                      )
-                    }
-                  />
-                </label>
-              </div>
-
-              <div className="ai-language-box">
-                <div>
-                  <span className="section-label">LANGUAGE READY</span>
-                  <h4>Farmer-friendly AI</h4>
-                  <p>
-                    AgriPower AI is designed to support local-language
-                    recommendations and simple explanations.
-                  </p>
-                </div>
-
-                <div className="language-pills">
-                  <span className={profile.language === "English" ? "selected" : ""}>
-                    English
-                  </span>
-                  <span className={profile.language === "Kannada" ? "selected" : ""}>
-                    ಕನ್ನಡ
-                  </span>
-                  <span className={profile.language === "Hindi" ? "selected" : ""}>
-                    हिन्दी
-                  </span>
-                </div>
-              </div>
-            </section>
+            <div>
+              <span>Access level</span>
+              <strong>Full system access</strong>
+            </div>
           </div>
         </div>
 
-        <div className="farm-actions">
-          <div>
-            <strong>Keep your preferences updated</strong>
+        <div className="profile-panel">
+          <div className="profile-panel-heading">
+            <h2>System overview</h2>
+
             <p>
-              These settings control how the AgriPower AI interface behaves.
+              Current AgriPower AI configuration.
             </p>
           </div>
 
-          <button className="primary-button" type="submit">
-            Save Preferences
-          </button>
+          <div className="profile-system-list">
+            <div>
+              <span>Frontend</span>
+              <strong>Operational</strong>
+            </div>
+
+            <div>
+              <span>Decision engine</span>
+              <strong>Active</strong>
+            </div>
+
+            <div>
+              <span>Farm database</span>
+              <strong>
+                {backendOnline
+                  ? "Connected"
+                  : "Offline"}
+              </strong>
+            </div>
+
+            <div>
+              <span>AI assistant</span>
+              <strong>Available</strong>
+            </div>
+
+            <div>
+              <span>Hardware integration</span>
+              <strong>Prototype mode</strong>
+            </div>
+          </div>
         </div>
-      </form>
+      </section>
+
+      <section className="profile-panel">
+        <div className="profile-panel-heading">
+          <h2>AgriPower AI capabilities</h2>
+
+          <p>
+            Intelligent services available in the
+            current prototype.
+          </p>
+        </div>
+
+        <div className="profile-capability-grid">
+          <div className="profile-capability">
+            <div className="profile-capability-icon">
+              AI
+            </div>
+
+            <div>
+              <h3>Farm intelligence</h3>
+
+              <p>
+                Combines farm conditions to generate
+                irrigation and energy recommendations.
+              </p>
+            </div>
+
+            <span>Active</span>
+          </div>
+
+          <div className="profile-capability">
+            <div className="profile-capability-icon">
+              W
+            </div>
+
+            <div>
+              <h3>Water optimization</h3>
+
+              <p>
+                Uses soil moisture and water
+                availability to support irrigation
+                decisions.
+              </p>
+            </div>
+
+            <span>Active</span>
+          </div>
+
+          <div className="profile-capability">
+            <div className="profile-capability-icon">
+              E
+            </div>
+
+            <div>
+              <h3>Energy optimization</h3>
+
+              <p>
+                Coordinates solar, battery and farm
+                energy demand.
+              </p>
+            </div>
+
+            <span>Active</span>
+          </div>
+
+          <div className="profile-capability">
+            <div className="profile-capability-icon">
+              S
+            </div>
+
+            <div>
+              <h3>Sensor integration</h3>
+
+              <p>
+                Supports live sensor data ingestion
+                from the physical farm system.
+              </p>
+            </div>
+
+            <span>Prototype</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="profile-panel">
+        <div className="profile-panel-heading">
+          <h2>System architecture</h2>
+
+          <p>
+            Current flow of information through the
+            platform.
+          </p>
+        </div>
+
+        <div className="profile-architecture">
+          <div className="profile-architecture-step">
+            <span>01</span>
+
+            <div>
+              <strong>Farm sensors</strong>
+              <p>
+                Collect soil, water, energy and
+                equipment data.
+              </p>
+            </div>
+          </div>
+
+          <div className="profile-architecture-arrow">
+            →
+          </div>
+
+          <div className="profile-architecture-step">
+            <span>02</span>
+
+            <div>
+              <strong>Decision engine</strong>
+              <p>
+                Evaluates conditions and determines
+                operating recommendations.
+              </p>
+            </div>
+          </div>
+
+          <div className="profile-architecture-arrow">
+            →
+          </div>
+
+          <div className="profile-architecture-step">
+            <span>03</span>
+
+            <div>
+              <strong>AI assistant</strong>
+              <p>
+                Explains decisions and provides
+                farmer-friendly guidance.
+              </p>
+            </div>
+          </div>
+
+          <div className="profile-architecture-arrow">
+            →
+          </div>
+
+          <div className="profile-architecture-step">
+            <span>04</span>
+
+            <div>
+              <strong>Farm action</strong>
+              <p>
+                Pump and energy systems respond to
+                approved operating decisions.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="profile-footer-card">
+        <div>
+          <strong>AgriPower AI</strong>
+
+          <p>
+            Sustainable agriculture through
+            intelligent energy and water management.
+          </p>
+        </div>
+
+        <span>
+          Prototype v1.0
+        </span>
+      </section>
     </div>
   );
 }

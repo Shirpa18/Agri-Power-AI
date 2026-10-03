@@ -1,597 +1,398 @@
-import { useMemo, useState } from "react";
+import React from "react";
 import { useFarm } from "../context/FarmContext";
-import { calculateFarmDecision } from "../utils/decisionEngine";
 
 function Alerts() {
-  const { data } = useFarm();
-
   const {
-    soil,
-    water,
-    weather,
-    energy,
-    sensors,
-    pump,
     farm,
-  } = data;
+    intelligence,
+    loading,
+    error,
+  } = useFarm();
 
-  const decision = calculateFarmDecision(data);
+  if (loading && !farm) {
+    return (
+      <div className="alerts-page">
+        <div className="dashboard-loading">
+          Loading alerts...
+        </div>
+      </div>
+    );
+  }
 
-  const [filter, setFilter] = useState("All");
-  const [resolvedAlerts, setResolvedAlerts] = useState([]);
+  if (error && !farm) {
+    return (
+      <div className="alerts-page">
+        <div className="dashboard-error">
+          <h3>Alerts unavailable</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
-  const alerts = useMemo(() => {
-    const generatedAlerts = [];
-
-    if (soil.moisture < soil.targetMoisture) {
-      const moistureGap =
-        soil.targetMoisture - soil.moisture;
-
-      generatedAlerts.push({
-        id: "soil-moisture",
-        type: moistureGap >= 20 ? "High" : "Medium",
-        title: "Soil moisture below target",
-        message:
-          `Soil moisture is ${soil.moisture}% while the target is ` +
-          `${soil.targetMoisture}%.`,
-        action:
-          decision.irrigationDecision === "IRRIGATE"
-            ? "Irrigation is recommended."
-            : "Monitor conditions before irrigation.",
-      });
-    }
-
-    if (water.available < water.required) {
-      generatedAlerts.push({
-        id: "water-level",
-        type: "High",
-        title: "Water availability is low",
-        message:
-          `Available water is ${water.available} L while ` +
-          `${water.required} L is required.`,
-        action:
-          "Reduce irrigation demand or replenish the water source.",
-      });
-    }
-
-    if (weather.rainProbability >= 60) {
-      generatedAlerts.push({
-        id: "rain-risk",
-        type: "Medium",
-        title: "Rain probability is high",
-        message:
-          `Rain probability is currently ${weather.rainProbability}%.`,
-        action:
-          "Irrigation should be delayed when appropriate.",
-      });
-    }
-
-    if (energy.batteryLevel < 30) {
-      generatedAlerts.push({
-        id: "battery-low",
-        type: "High",
-        title: "Battery level is low",
-        message:
-          `Battery charge is ${energy.batteryLevel}%.`,
-        action:
-          "Prefer available solar generation and preserve battery reserve.",
-      });
-    } else if (energy.batteryLevel < 50) {
-      generatedAlerts.push({
-        id: "battery-medium",
-        type: "Medium",
-        title: "Battery level is getting low",
-        message:
-          `Battery charge is ${energy.batteryLevel}%.`,
-        action:
-          "Monitor battery usage and renewable generation.",
-      });
-    }
-
-    if (!energy.gridAvailability) {
-      generatedAlerts.push({
-        id: "grid-offline",
-        type: "High",
-        title: "Grid power unavailable",
-        message:
-          "The farm grid connection is currently unavailable.",
-        action:
-          decision.energyDecision === "SOLAR"
-            ? "Solar energy can currently support the pump."
-            : decision.energyDecision === "BATTERY"
-            ? "Battery energy is available as backup."
-            : "No suitable backup energy source is currently available.",
-      });
-    }
-
-    if (!sensors.soil) {
-      generatedAlerts.push({
-        id: "soil-sensor",
-        type: "High",
-        title: "Soil sensor disconnected",
-        message:
-          "The soil moisture sensor is not reporting.",
-        action:
-          "Check the sensor connection before relying on live moisture readings.",
-      });
-    }
-
-    if (!sensors.water) {
-      generatedAlerts.push({
-        id: "water-sensor",
-        type: "Medium",
-        title: "Water sensor disconnected",
-        message:
-          "The water monitoring sensor is not reporting.",
-        action:
-          "Check the water sensor connection.",
-      });
-    }
-
-    if (!sensors.solar) {
-      generatedAlerts.push({
-        id: "solar-sensor",
-        type: "Medium",
-        title: "Solar sensor disconnected",
-        message:
-          "The solar monitoring sensor is not reporting.",
-        action:
-          "Check the solar monitoring connection.",
-      });
-    }
-
-    if (!sensors.pump) {
-      generatedAlerts.push({
-        id: "pump-sensor",
-        type: "Medium",
-        title: "Pump sensor disconnected",
-        message:
-          "The pump monitoring sensor is not reporting.",
-        action:
-          "Check the pump monitoring connection.",
-      });
-    }
-
-    if (
-      pump.running &&
-      decision.energyDecision === "GRID"
-    ) {
-      generatedAlerts.push({
-        id: "pump-grid",
-        type: "Medium",
-        title: "Pump running on grid power",
-        message:
-          "The pump is currently operating while grid power is the selected energy source.",
-        action:
-          "Check whether solar or battery power can be used instead.",
-      });
-    }
-
-    if (
-      decision.energyDecision === "UNAVAILABLE"
-    ) {
-      generatedAlerts.push({
-        id: "energy-unavailable",
-        type: "High",
-        title: "No suitable energy source",
-        message:
-          "Solar, battery and grid conditions cannot currently support irrigation.",
-        action:
-          "Wait for a suitable energy source before starting irrigation.",
-      });
-    }
-
-    return generatedAlerts;
-  }, [
-    soil,
-    water,
-    weather,
-    energy,
-    sensors,
-    pump,
-    decision,
-  ]);
-
-  const activeAlerts = alerts.filter(
-    (alert) => !resolvedAlerts.includes(alert.id)
+  const soilMoisture = Number(
+    farm?.soil_moisture ??
+      farm?.soilMoisture ??
+      0
   );
 
-  const filteredAlerts =
-    filter === "All"
-      ? activeAlerts
-      : activeAlerts.filter(
-          (alert) => alert.type === filter
-        );
+  const waterLevel = Number(
+    farm?.water_level ??
+      farm?.waterLevel ??
+      0
+  );
 
-  const highCount = activeAlerts.filter(
-    (alert) => alert.type === "High"
+  const batteryLevel = Number(
+    farm?.battery_level ??
+      farm?.batteryLevel ??
+      0
+  );
+
+  const solarPower = Number(
+    farm?.solar_power ??
+      farm?.solarPower ??
+      0
+  );
+
+  const pumpStatus =
+    farm?.pump_status ??
+    farm?.pumpStatus ??
+    farm?.pump_on ??
+    farm?.pumpOn ??
+    false;
+
+  const recommendation =
+    intelligence?.recommendation;
+
+  const recommendationAction =
+    typeof recommendation === "string"
+      ? recommendation
+      : recommendation?.action ||
+        intelligence?.message ||
+        "Farm systems are operating normally.";
+
+  const alerts = [];
+
+  if (soilMoisture < 30) {
+    alerts.push({
+      type: "critical",
+      title: "Low soil moisture",
+      message:
+        "Soil moisture is below the preferred operating range. Review irrigation requirements.",
+      value: `${soilMoisture.toFixed(0)}%`,
+      source: "Soil sensor",
+    });
+  } else if (soilMoisture < 45) {
+    alerts.push({
+      type: "warning",
+      title: "Soil moisture is falling",
+      message:
+        "The field is becoming dry. Monitor the next irrigation decision.",
+      value: `${soilMoisture.toFixed(0)}%`,
+      source: "Soil sensor",
+    });
+  }
+
+  if (waterLevel < 25) {
+    alerts.push({
+      type: "critical",
+      title: "Low water reserve",
+      message:
+        "Available irrigation water is critically low.",
+      value: `${waterLevel.toFixed(0)}%`,
+      source: "Water monitoring",
+    });
+  } else if (waterLevel < 50) {
+    alerts.push({
+      type: "warning",
+      title: "Water reserve is limited",
+      message:
+        "Available water is below the preferred reserve level.",
+      value: `${waterLevel.toFixed(0)}%`,
+      source: "Water monitoring",
+    });
+  }
+
+  if (batteryLevel < 20) {
+    alerts.push({
+      type: "critical",
+      title: "Battery critically low",
+      message:
+        "Stored energy is approaching a low reserve level.",
+      value: `${batteryLevel.toFixed(0)}%`,
+      source: "Energy system",
+    });
+  } else if (batteryLevel < 40) {
+    alerts.push({
+      type: "warning",
+      title: "Battery reserve is low",
+      message:
+        "Consider preserving stored energy for essential loads.",
+      value: `${batteryLevel.toFixed(0)}%`,
+      source: "Energy system",
+    });
+  }
+
+  if (solarPower > 0) {
+    alerts.push({
+      type: "info",
+      title: "Solar generation available",
+      message:
+        "Renewable energy is currently available for farm operations.",
+      value: `${solarPower.toFixed(1)} kW`,
+      source: "Solar system",
+    });
+  }
+
+  if (pumpStatus) {
+    alerts.push({
+      type: "info",
+      title: "Irrigation pump active",
+      message:
+        "The irrigation pump is currently operating.",
+      value: "ON",
+      source: "Pump controller",
+    });
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      type: "success",
+      title: "No active alerts",
+      message:
+        "Current farm conditions are within the monitored operating ranges.",
+      value: "OK",
+      source: "Farm intelligence",
+    });
+  }
+
+  const criticalCount = alerts.filter(
+    (alert) => alert.type === "critical"
   ).length;
 
-  const mediumCount = activeAlerts.filter(
-    (alert) => alert.type === "Medium"
+  const warningCount = alerts.filter(
+    (alert) => alert.type === "warning"
   ).length;
 
-  const resolveAlert = (id) => {
-    setResolvedAlerts((current) => [
-      ...current,
-      id,
-    ]);
-  };
-
-  const clearResolved = () => {
-    setResolvedAlerts([]);
-  };
+  const infoCount = alerts.filter(
+    (alert) => alert.type === "info"
+  ).length;
 
   return (
     <div className="alerts-page">
-      <div className="page-heading">
+      <section className="alerts-header">
         <div>
-          <p className="eyebrow">
-            Farm Monitoring
-          </p>
+          <div className="alerts-overline">
+            SYSTEM MONITORING
+          </div>
 
-          <h2>Alerts</h2>
+          <h1>Alerts & events</h1>
 
           <p>
-            Real-time warnings based on soil,
-            water, weather and energy conditions.
+            Monitor conditions that may require
+            attention across water, energy and
+            irrigation systems.
           </p>
         </div>
 
-        <span
-          className={`status-badge ${
-            highCount > 0
-              ? "warning"
-              : "success"
-          }`}
-        >
-          {activeAlerts.length === 0
-            ? "System Healthy"
-            : `${activeAlerts.length} Active`}
-        </span>
-      </div>
+        <div className="alerts-status">
+          <span className="alerts-status-dot" />
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">
-            Active Alerts
-          </div>
-
-          <div className="stat-value">
-            {activeAlerts.length}
-          </div>
-
-          <div className="stat-meta">
-            Current farm conditions
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            High Priority
-          </div>
-
-          <div className="stat-value">
-            {highCount}
-          </div>
-
-          <div className="stat-meta">
-            Requires attention
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Medium Priority
-          </div>
-
-          <div className="stat-value">
-            {mediumCount}
-          </div>
-
-          <div className="stat-meta">
-            Monitor conditions
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Decision Status
-          </div>
-
-          <div className="stat-value">
-            {decision.irrigationDecision}
-          </div>
-
-          <div className="stat-meta">
-            Energy: {decision.energyDecision}
-          </div>
-        </div>
-      </div>
-
-      <section className="panel">
-        <div className="panel-header">
           <div>
-            <p className="eyebrow">
-              Alert Center
-            </p>
-
-            <h3>Current Farm Alerts</h3>
+            <span>Monitoring status</span>
+            <strong>Active</strong>
           </div>
+        </div>
+      </section>
 
-          <button
-            type="button"
-            className="button secondary"
-            onClick={clearResolved}
-          >
-            Reset Resolved
-          </button>
+      <section className="alerts-summary-grid">
+        <div className="alerts-summary-card critical">
+          <span>Critical</span>
+          <strong>{criticalCount}</strong>
+          <small>Requires attention</small>
         </div>
 
-        <div className="alert-filters">
-          <button
-            type="button"
-            className={
-              filter === "All"
-                ? "button primary"
-                : "button secondary"
-            }
-            onClick={() => setFilter("All")}
-          >
-            All
-          </button>
-
-          <button
-            type="button"
-            className={
-              filter === "High"
-                ? "button primary"
-                : "button secondary"
-            }
-            onClick={() => setFilter("High")}
-          >
-            High
-          </button>
-
-          <button
-            type="button"
-            className={
-              filter === "Medium"
-                ? "button primary"
-                : "button secondary"
-            }
-            onClick={() => setFilter("Medium")}
-          >
-            Medium
-          </button>
+        <div className="alerts-summary-card warning">
+          <span>Warnings</span>
+          <strong>{warningCount}</strong>
+          <small>Needs monitoring</small>
         </div>
 
-        {filteredAlerts.length === 0 ? (
-          <div className="setup-message">
-            <strong>
-              No active alerts
-            </strong>
+        <div className="alerts-summary-card info">
+          <span>Information</span>
+          <strong>{infoCount}</strong>
+          <small>System events</small>
+        </div>
 
-            <p>
-              Current farm conditions are within
-              the monitored operating range.
-            </p>
+        <div className="alerts-summary-card">
+          <span>Total events</span>
+          <strong>{alerts.length}</strong>
+          <small>Current conditions</small>
+        </div>
+      </section>
+
+      <section className="alerts-main-grid">
+        <div className="alerts-panel">
+          <div className="alerts-panel-header">
+            <div>
+              <h2>Current alerts</h2>
+              <p>
+                Latest events detected by the farm
+                monitoring layer.
+              </p>
+            </div>
+
+            <span className="alerts-live-badge">
+              LIVE
+            </span>
           </div>
-        ) : (
+
           <div className="alerts-list">
-            {filteredAlerts.map((alert) => (
+            {alerts.map((alert, index) => (
               <div
-                className={`alert-card ${alert.type.toLowerCase()}`}
-                key={alert.id}
+                className={`alert-item ${alert.type}`}
+                key={`${alert.title}-${index}`}
               >
+                <div className="alert-indicator">
+                  {alert.type === "critical"
+                    ? "!"
+                    : alert.type === "warning"
+                    ? "!"
+                    : alert.type === "success"
+                    ? "OK"
+                    : "i"}
+                </div>
+
                 <div className="alert-content">
-                  <div className="alert-header">
-                    <div>
-                      <span
-                        className={`status-badge ${
-                          alert.type === "High"
-                            ? "warning"
-                            : "success"
-                        }`}
-                      >
-                        {alert.type}
-                      </span>
+                  <div className="alert-title-row">
+                    <h3>{alert.title}</h3>
 
-                      <h4>
-                        {alert.title}
-                      </h4>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="button secondary"
-                      onClick={() =>
-                        resolveAlert(alert.id)
-                      }
-                    >
-                      Resolve
-                    </button>
+                    <span className="alert-value">
+                      {alert.value}
+                    </span>
                   </div>
 
-                  <p>
-                    {alert.message}
-                  </p>
+                  <p>{alert.message}</p>
 
-                  <span className="metric-label">
-                    Recommended action
+                  <span className="alert-source">
+                    Source: {alert.source}
                   </span>
-
-                  <p>
-                    {alert.action}
-                  </p>
                 </div>
               </div>
             ))}
           </div>
-        )}
+        </div>
+
+        <aside className="alerts-panel alerts-health-panel">
+          <div className="alerts-panel-header">
+            <div>
+              <h2>System health</h2>
+              <p>
+                Current operational conditions.
+              </p>
+            </div>
+          </div>
+
+          <div className="alerts-health-list">
+            <div className="alerts-health-row">
+              <span>Soil moisture</span>
+
+              <strong
+                className={
+                  soilMoisture < 30
+                    ? "danger"
+                    : soilMoisture < 45
+                    ? "warning"
+                    : "healthy"
+                }
+              >
+                {soilMoisture.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="alerts-health-row">
+              <span>Water reserve</span>
+
+              <strong
+                className={
+                  waterLevel < 25
+                    ? "danger"
+                    : waterLevel < 50
+                    ? "warning"
+                    : "healthy"
+                }
+              >
+                {waterLevel.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="alerts-health-row">
+              <span>Battery</span>
+
+              <strong
+                className={
+                  batteryLevel < 20
+                    ? "danger"
+                    : batteryLevel < 40
+                    ? "warning"
+                    : "healthy"
+                }
+              >
+                {batteryLevel.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="alerts-health-row">
+              <span>Solar output</span>
+
+              <strong className="healthy">
+                {solarPower.toFixed(1)} kW
+              </strong>
+            </div>
+
+            <div className="alerts-health-row">
+              <span>Irrigation pump</span>
+
+              <strong
+                className={
+                  pumpStatus
+                    ? "warning"
+                    : "healthy"
+                }
+              >
+                {pumpStatus ? "ON" : "OFF"}
+              </strong>
+            </div>
+          </div>
+        </aside>
       </section>
 
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                System Health
-              </p>
+      <section className="alerts-panel">
+        <div className="alerts-panel-header">
+          <div>
+            <h2>AI decision context</h2>
 
-              <h3>Connected Systems</h3>
-            </div>
+            <p>
+              Current recommendation generated from
+              farm operating conditions.
+            </p>
+          </div>
+        </div>
+
+        <div className="alerts-ai-context">
+          <div className="alerts-ai-mark">
+            AI
           </div>
 
-          <div className="system-list">
-            <div className="system-row">
-              <div>
-                <strong>Soil Monitoring</strong>
+          <div>
+            <span>Current recommendation</span>
 
-                <span>
-                  Moisture: {soil.moisture}%
-                </span>
-              </div>
-
-              <span
-                className={
-                  sensors.soil
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.soil
-                  ? "Online"
-                  : "Offline"}
-              </span>
-            </div>
-
-            <div className="system-row">
-              <div>
-                <strong>Water Monitoring</strong>
-
-                <span>
-                  Available: {water.available} L
-                </span>
-              </div>
-
-              <span
-                className={
-                  sensors.water
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.water
-                  ? "Online"
-                  : "Offline"}
-              </span>
-            </div>
-
-            <div className="system-row">
-              <div>
-                <strong>Solar Monitoring</strong>
-
-                <span>
-                  Generation:{" "}
-                  {energy.solarGeneration} kW
-                </span>
-              </div>
-
-              <span
-                className={
-                  sensors.solar
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.solar
-                  ? "Online"
-                  : "Offline"}
-              </span>
-            </div>
-
-            <div className="system-row">
-              <div>
-                <strong>Pump Monitoring</strong>
-
-                <span>
-                  Status:{" "}
-                  {pump.running
-                    ? "Running"
-                    : "Standby"}
-                </span>
-              </div>
-
-              <span
-                className={
-                  sensors.pump
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.pump
-                  ? "Online"
-                  : "Offline"}
-              </span>
-            </div>
+            <strong>
+              {recommendationAction}
+            </strong>
           </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                AI Decision Context
-              </p>
-
-              <h3>
-                {farm.name}
-              </h3>
-            </div>
-          </div>
-
-          <div className="insight-content">
-            <div>
-              <span className="metric-label">
-                Irrigation decision
-              </span>
-
-              <strong>
-                {decision.irrigationDecision}
-              </strong>
-
-              <p>
-                {decision.reason}
-              </p>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Energy decision
-              </span>
-
-              <strong>
-                {decision.energyDecision}
-              </strong>
-
-              <p>
-                {decision.energyReason}
-              </p>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Decision priority
-              </span>
-
-              <strong>
-                {decision.priority}
-              </strong>
-            </div>
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,410 +1,419 @@
-import { useState } from "react";
+import React from "react";
 import { useFarm } from "../context/FarmContext";
 
 function Farm() {
-  const { data, updateFarm } = useFarm();
+  const {
+    farm,
+    loading,
+    error,
+  } = useFarm();
 
-  const [saved, setSaved] = useState(false);
+  if (loading && !farm) {
+    return (
+      <div className="farm-page">
+        <div className="dashboard-loading">
+          Loading farm configuration...
+        </div>
+      </div>
+    );
+  }
 
-  const [form, setForm] = useState({
-    ...data.farm,
-    soilType: data.soil.soilType,
-    targetMoisture: data.soil.targetMoisture,
-    waterSource: data.water.waterSource,
-    reservoirCapacity: data.water.reservoirCapacity,
-    pumpPower: data.energy.pumpPower,
-    solarCapacity: data.energy.solarCapacity,
-    batteryCapacity: data.energy.batteryCapacity,
-  });
+  if (error && !farm) {
+    return (
+      <div className="farm-page">
+        <div className="dashboard-error">
+          <h3>Farm configuration unavailable</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
+  const farmName =
+    farm?.name || "Green Valley Farm";
 
-    setForm((current) => ({
-      ...current,
-      [name]: value,
-    }));
+  const location =
+    farm?.location || "Karnataka, India";
 
-    setSaved(false);
-  };
+  const soilMoisture = Number(
+    farm?.soil_moisture ??
+      farm?.soilMoisture ??
+      0
+  );
 
-  const handleSave = (event) => {
-    event.preventDefault();
+  const waterLevel = Number(
+    farm?.water_level ??
+      farm?.waterLevel ??
+      0
+  );
 
-    updateFarm("farm", {
-      name: form.name,
-      location: form.location,
-      crop: form.crop,
-      fieldSize: Number(form.fieldSize),
-      growthStage: form.growthStage,
-      irrigationMethod: form.irrigationMethod,
-      soilType: form.soilType,
-    });
+  const solarPower = Number(
+    farm?.solar_power ??
+      farm?.solarPower ??
+      0
+  );
 
-    updateFarm("soil", {
-      soilType: form.soilType,
-      targetMoisture: Number(
-        form.targetMoisture
-      ),
-    });
+  const batteryLevel = Number(
+    farm?.battery_level ??
+      farm?.batteryLevel ??
+      0
+  );
 
-    updateFarm("water", {
-      waterSource: form.waterSource,
-      reservoirCapacity: Number(
-        form.reservoirCapacity
-      ),
-    });
+  const pumpStatus =
+    farm?.pump_status ??
+    farm?.pumpStatus ??
+    farm?.pump_on ??
+    farm?.pumpOn ??
+    false;
 
-    updateFarm("energy", {
-      pumpPower: Number(form.pumpPower),
-      solarCapacity: Number(
-        form.solarCapacity
-      ),
-      batteryCapacity: Number(
-        form.batteryCapacity
-      ),
-    });
+  const soilCondition =
+    soilMoisture < 30
+      ? "Very dry"
+      : soilMoisture < 45
+      ? "Dry"
+      : soilMoisture < 70
+      ? "Healthy"
+      : "Wet";
 
-    setSaved(true);
-  };
+  const waterCondition =
+    waterLevel < 25
+      ? "Critical"
+      : waterLevel < 50
+      ? "Low"
+      : waterLevel < 75
+      ? "Moderate"
+      : "Healthy";
 
   return (
-    <div>
-      <div className="page-heading">
+    <div className="farm-page">
+      <section className="farm-header">
         <div>
-          <p className="eyebrow">
-            Farm Configuration
-          </p>
+          <div className="farm-overline">
+            FARM CONFIGURATION
+          </div>
 
-          <h2>
-            Build Your Farm Profile
-          </h2>
+          <h1>{farmName}</h1>
 
           <p>
-            Configure the farm once and let
-            AgriPower use it across every intelligence
-            module.
+            Manage farm information, field conditions
+            and connected infrastructure.
           </p>
         </div>
 
-        <span className="status-badge success">
-          Digital Profile Active
-        </span>
-      </div>
+        <div className="farm-location-card">
+          <span>Farm location</span>
+          <strong>{location}</strong>
+        </div>
+      </section>
 
-      <form onSubmit={handleSave}>
-        <section className="panel">
-          <div className="panel-header">
+      <section className="farm-main-grid">
+        <div className="farm-panel farm-profile-panel">
+          <div className="farm-panel-header">
             <div>
-              <p className="eyebrow">
-                01
+              <h2>Farm profile</h2>
+
+              <p>
+                Current farm configuration used by
+                AgriPower AI.
               </p>
-
-              <h3>
-                Farm Identity
-              </h3>
             </div>
           </div>
 
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Farm Name</label>
-
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-              />
+          <div className="farm-profile-grid">
+            <div className="farm-field">
+              <span>Farm name</span>
+              <strong>{farmName}</strong>
             </div>
 
-            <div className="form-group">
-              <label>Location</label>
-
-              <input
-                name="location"
-                value={form.location}
-                onChange={handleChange}
-              />
+            <div className="farm-field">
+              <span>Location</span>
+              <strong>{location}</strong>
             </div>
 
-            <div className="form-group">
-              <label>Primary Crop</label>
-
-              <input
-                name="crop"
-                value={form.crop}
-                onChange={handleChange}
-              />
+            <div className="farm-field">
+              <span>Operating mode</span>
+              <strong>AI assisted</strong>
             </div>
 
-            <div className="form-group">
-              <label>Field Size</label>
-
-              <input
-                type="number"
-                step="0.1"
-                name="fieldSize"
-                value={form.fieldSize}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Growth Stage</label>
-
-              <select
-                name="growthStage"
-                value={form.growthStage}
-                onChange={handleChange}
-              >
-                <option>Seedling</option>
-                <option>Vegetative</option>
-                <option>Flowering</option>
-                <option>Fruiting</option>
-                <option>Harvest</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Irrigation Method</label>
-
-              <select
-                name="irrigationMethod"
-                value={form.irrigationMethod}
-                onChange={handleChange}
-              >
-                <option>
-                  Drip Irrigation
-                </option>
-
-                <option>
-                  Sprinkler Irrigation
-                </option>
-
-                <option>
-                  Flood Irrigation
-                </option>
-              </select>
+            <div className="farm-field">
+              <span>System type</span>
+              <strong>Smart agriculture</strong>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section className="panel">
-          <div className="panel-header">
+        <div className="farm-panel farm-status-panel">
+          <div className="farm-panel-header">
             <div>
-              <p className="eyebrow">
-                02
+              <h2>Farm status</h2>
+
+              <p>
+                Live resource conditions.
               </p>
-
-              <h3>
-                Water & Soil Intelligence
-              </h3>
             </div>
           </div>
 
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Soil Type</label>
+          <div className="farm-status-list">
+            <div>
+              <span>Soil condition</span>
 
-              <select
-                name="soilType"
-                value={form.soilType}
-                onChange={handleChange}
+              <strong
+                className={
+                  soilMoisture < 30
+                    ? "farm-danger"
+                    : soilMoisture < 45
+                    ? "farm-warning"
+                    : "farm-healthy"
+                }
               >
-                <option>Loamy</option>
-                <option>Sandy</option>
-                <option>Clay</option>
-                <option>Silty</option>
-                <option>Black Soil</option>
-                <option>Red Soil</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>
-                Target Soil Moisture
-              </label>
-
-              <input
-                type="number"
-                min="0"
-                max="100"
-                name="targetMoisture"
-                value={form.targetMoisture}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Water Source</label>
-
-              <select
-                name="waterSource"
-                value={form.waterSource}
-                onChange={handleChange}
-              >
-                <option>
-                  Farm Reservoir
-                </option>
-
-                <option>
-                  Borewell
-                </option>
-
-                <option>
-                  Rainwater Harvesting
-                </option>
-
-                <option>
-                  Canal
-                </option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>
-                Reservoir Capacity
-              </label>
-
-              <input
-                type="number"
-                name="reservoirCapacity"
-                value={form.reservoirCapacity}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                03
-              </p>
-
-              <h3>
-                Energy Infrastructure
-              </h3>
-            </div>
-          </div>
-
-          <div className="form-grid">
-            <div className="form-group">
-              <label>
-                Pump Power
-              </label>
-
-              <input
-                type="number"
-                step="0.1"
-                name="pumpPower"
-                value={form.pumpPower}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>
-                Solar Capacity
-              </label>
-
-              <input
-                type="number"
-                step="0.1"
-                name="solarCapacity"
-                value={form.solarCapacity}
-                onChange={handleChange}
-              />
-            </div>
-
-            <div className="form-group">
-              <label>
-                Battery Capacity
-              </label>
-
-              <input
-                type="number"
-                step="0.1"
-                name="batteryCapacity"
-                value={form.batteryCapacity}
-                onChange={handleChange}
-              />
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                DIGITAL PROFILE
-              </p>
-
-              <h3>
-                Configuration Preview
-              </h3>
-            </div>
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span>
-                Farm
-              </span>
-
-              <strong>
-                {form.name}
+                {soilCondition}
               </strong>
             </div>
 
             <div>
-              <span>
-                Crop
-              </span>
+              <span>Water condition</span>
 
-              <strong>
-                {form.crop}
+              <strong
+                className={
+                  waterLevel < 25
+                    ? "farm-danger"
+                    : waterLevel < 50
+                    ? "farm-warning"
+                    : "farm-healthy"
+                }
+              >
+                {waterCondition}
               </strong>
             </div>
 
             <div>
-              <span>
-                Soil Target
-              </span>
+              <span>Pump status</span>
 
-              <strong>
-                {form.targetMoisture}%
+              <strong
+                className={
+                  pumpStatus
+                    ? "farm-warning"
+                    : "farm-healthy"
+                }
+              >
+                {pumpStatus ? "Running" : "Idle"}
               </strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="farm-panel">
+        <div className="farm-panel-header">
+          <div>
+            <h2>Field conditions</h2>
+
+            <p>
+              Current measurements received by the
+              farm intelligence system.
+            </p>
+          </div>
+        </div>
+
+        <div className="farm-condition-grid">
+          <div className="farm-condition-card">
+            <div className="farm-condition-top">
+              <span>Soil moisture</span>
+              <strong>
+                {soilMoisture.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="farm-progress">
+              <div
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, soilMoisture)
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <p>
+              Moisture available in the active
+              growing area.
+            </p>
+          </div>
+
+          <div className="farm-condition-card">
+            <div className="farm-condition-top">
+              <span>Water reserve</span>
+              <strong>
+                {waterLevel.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="farm-progress">
+              <div
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, waterLevel)
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <p>
+              Current irrigation water availability.
+            </p>
+          </div>
+
+          <div className="farm-condition-card">
+            <div className="farm-condition-top">
+              <span>Solar generation</span>
+              <strong>
+                {solarPower.toFixed(1)} kW
+              </strong>
+            </div>
+
+            <div className="farm-progress">
+              <div
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, solarPower * 33.33)
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <p>
+              Current renewable energy output.
+            </p>
+          </div>
+
+          <div className="farm-condition-card">
+            <div className="farm-condition-top">
+              <span>Battery charge</span>
+              <strong>
+                {batteryLevel.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="farm-progress">
+              <div
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, batteryLevel)
+                  )}%`,
+                }}
+              />
+            </div>
+
+            <p>
+              Stored energy available for farm
+              operations.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="farm-panel">
+        <div className="farm-panel-header">
+          <div>
+            <h2>Connected infrastructure</h2>
+
+            <p>
+              Components currently represented in
+              the AgriPower AI system.
+            </p>
+          </div>
+        </div>
+
+        <div className="farm-infrastructure-grid">
+          <div className="farm-infrastructure-item">
+            <div className="farm-infrastructure-icon">
+              SM
             </div>
 
             <div>
-              <span>
-                Solar
-              </span>
-
-              <strong>
-                {form.solarCapacity} kW
-              </strong>
+              <strong>Soil moisture sensor</strong>
+              <span>Monitoring field moisture</span>
             </div>
+
+            <b>Connected</b>
           </div>
 
-          <div className="form-actions">
-            {saved && (
-              <span className="status-badge success">
-                Configuration Saved
+          <div className="farm-infrastructure-item">
+            <div className="farm-infrastructure-icon">
+              WT
+            </div>
+
+            <div>
+              <strong>Water monitoring</strong>
+              <span>Tracking irrigation reserve</span>
+            </div>
+
+            <b>Connected</b>
+          </div>
+
+          <div className="farm-infrastructure-item">
+            <div className="farm-infrastructure-icon">
+              PV
+            </div>
+
+            <div>
+              <strong>Solar generation</strong>
+              <span>Monitoring renewable output</span>
+            </div>
+
+            <b>Connected</b>
+          </div>
+
+          <div className="farm-infrastructure-item">
+            <div className="farm-infrastructure-icon">
+              BAT
+            </div>
+
+            <div>
+              <strong>Battery storage</strong>
+              <span>Tracking stored energy</span>
+            </div>
+
+            <b>Connected</b>
+          </div>
+
+          <div className="farm-infrastructure-item">
+            <div className="farm-infrastructure-icon">
+              P
+            </div>
+
+            <div>
+              <strong>Irrigation pump</strong>
+              <span>
+                {pumpStatus
+                  ? "Currently operating"
+                  : "Currently idle"}
               </span>
-            )}
+            </div>
 
-            <button
-              type="submit"
-              className="button primary"
-            >
-              Save Farm Configuration
-            </button>
+            <b>
+              {pumpStatus ? "Active" : "Ready"}
+            </b>
           </div>
-        </section>
-      </form>
+
+          <div className="farm-infrastructure-item">
+            <div className="farm-infrastructure-icon">
+              AI
+            </div>
+
+            <div>
+              <strong>Decision engine</strong>
+              <span>Farm intelligence active</span>
+            </div>
+
+            <b>Active</b>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

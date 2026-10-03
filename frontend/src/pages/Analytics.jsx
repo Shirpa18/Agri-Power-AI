@@ -1,474 +1,557 @@
-import { useState } from "react";
+import React from "react";
 import { useFarm } from "../context/FarmContext";
 
 function Analytics() {
-  const { data } = useFarm();
-
   const {
     farm,
-    soil,
-    water,
-    weather,
-    energy,
-    pump,
-  } = data;
+    intelligence,
+    loading,
+    error,
+  } = useFarm();
 
-  const [period, setPeriod] = useState("Today");
+  if (loading && !farm) {
+    return (
+      <div className="analytics-page">
+        <div className="dashboard-loading">
+          Loading farm analytics...
+        </div>
+      </div>
+    );
+  }
 
-  const waterEfficiency = Math.min(
-    (water.available / water.reservoirCapacity) * 100,
-    100
+  if (error && !farm) {
+    return (
+      <div className="analytics-page">
+        <div className="dashboard-error">
+          <div>
+            <h3>Analytics unavailable</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const soilMoisture = Number(
+    farm?.soil_moisture ??
+      farm?.soilMoisture ??
+      0
   );
 
-  const solarUtilization = Math.min(
-    (energy.solarGeneration / energy.solarCapacity) * 100,
-    100
+  const waterLevel = Number(
+    farm?.water_level ??
+      farm?.waterLevel ??
+      0
   );
 
-  const solarCoverage = Math.min(
-    (energy.solarGeneration / energy.pumpPower) * 100,
-    100
+  const solarPower = Number(
+    farm?.solar_power ??
+      farm?.solarPower ??
+      0
   );
 
-  const moistureEfficiency = Math.min(
-    (soil.moisture / soil.targetMoisture) * 100,
-    100
+  const batteryLevel = Number(
+    farm?.battery_level ??
+      farm?.batteryLevel ??
+      0
   );
 
-  const renewableShare =
-    energy.solarGeneration + energy.pumpPower > 0
+  const pumpStatus =
+    farm?.pump_status ??
+    farm?.pumpStatus ??
+    farm?.pump_on ??
+    farm?.pumpOn ??
+    false;
+
+  const recommendation =
+    intelligence?.recommendation;
+
+  const irrigationRecommendation =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.irrigation
+      : null;
+
+  const energyRecommendation =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.energySource
+      : null;
+
+  const recommendationAction =
+    typeof recommendation === "string"
+      ? recommendation
+      : recommendation?.action ||
+        intelligence?.message ||
+        "Monitoring current farm conditions.";
+
+  /*
+   * These are presentation metrics for the prototype.
+   * They should be replaced with historical measurements
+   * once the sensor database contains time-series data.
+   */
+  const estimatedWaterEfficiency =
+    soilMoisture >= 45 && waterLevel >= 50
+      ? 82
+      : soilMoisture >= 30
+      ? 68
+      : 54;
+
+  const estimatedSolarUtilization =
+    solarPower <= 0
+      ? 0
+      : Math.min(
+          100,
+          Math.round(
+            (solarPower / 3) * 100
+          )
+        );
+
+  const estimatedEnergyEfficiency =
+    pumpStatus
       ? Math.min(
-          (energy.solarGeneration /
-            (energy.solarGeneration + energy.pumpPower)) *
-            100,
-          100
+          100,
+          Math.round(
+            55 +
+              estimatedSolarUtilization * 0.35
+          )
         )
-      : 0;
+      : 94;
 
-  const estimatedDailySolar =
-    energy.solarGeneration * 6;
-
-  const estimatedPumpEnergy =
-    energy.pumpPower * 4;
-
-  const estimatedGridEnergy = Math.max(
-    estimatedPumpEnergy - estimatedDailySolar,
-    0
+  const overallScore = Math.round(
+    estimatedWaterEfficiency * 0.4 +
+      estimatedSolarUtilization * 0.3 +
+      estimatedEnergyEfficiency * 0.3
   );
-
-  const estimatedWaterSaved = Math.round(
-    water.required * 0.18
-  );
-
-  const efficiencyStatus =
-    moistureEfficiency >= 90
-      ? "Within target"
-      : moistureEfficiency >= 70
-        ? "Needs attention"
-        : "Below target";
 
   return (
     <div className="analytics-page">
-      <div className="page-heading">
+      <section className="analytics-header">
         <div>
-          <span className="section-label">FARM ANALYTICS</span>
+          <div className="analytics-overline">
+            FARM PERFORMANCE
+          </div>
 
-          <h2>Performance Analytics</h2>
+          <h1>
+            Analytics & impact
+          </h1>
 
           <p>
-            Understand how efficiently {farm.name} is using water
-            and energy.
+            Track the operational signals that
+            determine water efficiency, energy
+            efficiency and sustainable farm
+            performance.
           </p>
         </div>
 
-        <div className="analytics-period">
-          {["Today", "7 Days", "30 Days"].map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={period === item ? "active" : ""}
-              onClick={() => setPeriod(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
+        <div className="analytics-score-card">
+          <div className="analytics-score-ring">
+            <strong>{overallScore}</strong>
+            <span>/100</span>
+          </div>
 
-      <section className="analytics-overview">
-        <div>
-          <span className="section-label">EFFICIENCY INDICATOR</span>
-
-          <h3>
-            {efficiencyStatus}
-          </h3>
-
-          <p>
-            Soil moisture is currently {soil.moisture}% compared
-            with the configured target of {soil.targetMoisture}%.
-          </p>
-        </div>
-
-        <div className="efficiency-score">
-          <strong>{moistureEfficiency.toFixed(0)}%</strong>
-          <span>Moisture efficiency</span>
+          <div>
+            <span>Farm efficiency</span>
+            <strong>Current estimate</strong>
+          </div>
         </div>
       </section>
 
-      <div className="analytics-kpi-grid">
-        <div className="stat-card">
-          <span className="stat-label">WATER AVAILABLE</span>
-
-          <strong>
-            {water.available.toLocaleString()} L
-          </strong>
-
-          <small>
-            {waterEfficiency.toFixed(0)}% of storage capacity
-          </small>
-        </div>
-
-        <div className="stat-card">
-          <span className="stat-label">SOLAR UTILIZATION</span>
-
-          <strong>
-            {solarUtilization.toFixed(0)}%
-          </strong>
-
-          <small>
-            {energy.solarGeneration} kW of {energy.solarCapacity} kW
-          </small>
-        </div>
-
-        <div className="stat-card">
-          <span className="stat-label">SOLAR COVERAGE</span>
-
-          <strong>
-            {solarCoverage.toFixed(0)}%
-          </strong>
-
-          <small>
-            Pump demand {energy.pumpPower} kW
-          </small>
-        </div>
-
-        <div className="stat-card">
-          <span className="stat-label">RENEWABLE SHARE</span>
-
-          <strong>
-            {renewableShare.toFixed(0)}%
-          </strong>
-
-          <small>
-            Current operating conditions
-          </small>
-        </div>
-      </div>
-
-      <div className="analytics-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <h3>Water Efficiency</h3>
-
-              <p>
-                Current water storage and irrigation requirement.
-              </p>
-            </div>
+      <section className="analytics-kpi-grid">
+        <div className="analytics-kpi-card">
+          <div className="analytics-kpi-icon">
+            W
           </div>
 
-          <div className="analytics-meter">
-            <div className="analytics-meter-header">
-              <span>Storage utilization</span>
-
-              <strong>
-                {waterEfficiency.toFixed(0)}%
-              </strong>
-            </div>
-
-            <div className="analytics-track">
-              <div
-                className="analytics-fill"
-                style={{
-                  width: `${waterEfficiency}%`,
-                }}
-              ></div>
-            </div>
-
-            <div className="analytics-meter-footer">
-              <span>
-                {water.available.toLocaleString()} L available
-              </span>
-
-              <span>
-                {water.reservoirCapacity.toLocaleString()} L capacity
-              </span>
-            </div>
-          </div>
-
-          <div className="analytics-data-list">
-            <div>
-              <span>Recommended irrigation</span>
-              <strong>{water.required} L</strong>
-            </div>
-
-            <div>
-              <span>Estimated water saved</span>
-              <strong>{estimatedWaterSaved} L</strong>
-            </div>
-
-            <div>
-              <span>Water remaining after irrigation</span>
-
-              <strong>
-                {Math.max(
-                  water.available - water.required,
-                  0
-                ).toLocaleString()} L
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <h3>Energy Efficiency</h3>
-
-              <p>
-                Current solar generation compared with farm demand.
-              </p>
-            </div>
-          </div>
-
-          <div className="energy-efficiency-visual">
-            <div className="energy-ring">
-              <strong>
-                {solarCoverage.toFixed(0)}%
-              </strong>
-
-              <span>Solar coverage</span>
-            </div>
-
-            <div className="energy-efficiency-details">
-              <div>
-                <span>Solar generation</span>
-                <strong>
-                  {energy.solarGeneration} kW
-                </strong>
-              </div>
-
-              <div>
-                <span>Pump demand</span>
-                <strong>
-                  {energy.pumpPower} kW
-                </strong>
-              </div>
-
-              <div>
-                <span>Battery reserve</span>
-                <strong>
-                  {energy.batteryLevel}%
-                </strong>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section className="panel">
-        <div className="panel-header">
           <div>
-            <span className="section-label">ENERGY TREND</span>
+            <span>Water efficiency</span>
 
-            <h3>Estimated Daily Energy Profile</h3>
+            <strong>
+              {estimatedWaterEfficiency}%
+            </strong>
+
+            <small>
+              Based on current field conditions
+            </small>
+          </div>
+        </div>
+
+        <div className="analytics-kpi-card">
+          <div className="analytics-kpi-icon">
+            S
+          </div>
+
+          <div>
+            <span>Solar utilization</span>
+
+            <strong>
+              {estimatedSolarUtilization}%
+            </strong>
+
+            <small>
+              Based on current solar output
+            </small>
+          </div>
+        </div>
+
+        <div className="analytics-kpi-card">
+          <div className="analytics-kpi-icon">
+            E
+          </div>
+
+          <div>
+            <span>Energy efficiency</span>
+
+            <strong>
+              {estimatedEnergyEfficiency}%
+            </strong>
+
+            <small>
+              Current operating estimate
+            </small>
+          </div>
+        </div>
+
+        <div className="analytics-kpi-card">
+          <div className="analytics-kpi-icon">
+            A
+          </div>
+
+          <div>
+            <span>AI decision state</span>
+
+            <strong>
+              Active
+            </strong>
+
+            <small>
+              Farm intelligence connected
+            </small>
+          </div>
+        </div>
+      </section>
+
+      <section className="analytics-main-grid">
+        <div className="analytics-panel">
+          <div className="analytics-panel-header">
+            <div>
+              <h2>
+                Resource performance
+              </h2>
+
+              <p>
+                Current indicators from the farm
+                intelligence system.
+              </p>
+            </div>
+          </div>
+
+          <div className="analytics-resource-list">
+            <div className="analytics-resource-row">
+              <div className="analytics-resource-info">
+                <div className="analytics-resource-title">
+                  Soil moisture
+                </div>
+
+                <div className="analytics-resource-subtitle">
+                  Current field condition
+                </div>
+              </div>
+
+              <strong>
+                {soilMoisture.toFixed(0)}%
+              </strong>
+
+              <div className="analytics-resource-bar">
+                <div
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(0, soilMoisture)
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="analytics-resource-row">
+              <div className="analytics-resource-info">
+                <div className="analytics-resource-title">
+                  Water reserve
+                </div>
+
+                <div className="analytics-resource-subtitle">
+                  Available irrigation water
+                </div>
+              </div>
+
+              <strong>
+                {waterLevel.toFixed(0)}%
+              </strong>
+
+              <div className="analytics-resource-bar">
+                <div
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(0, waterLevel)
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="analytics-resource-row">
+              <div className="analytics-resource-info">
+                <div className="analytics-resource-title">
+                  Battery
+                </div>
+
+                <div className="analytics-resource-subtitle">
+                  Available stored energy
+                </div>
+              </div>
+
+              <strong>
+                {batteryLevel.toFixed(0)}%
+              </strong>
+
+              <div className="analytics-resource-bar">
+                <div
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(0, batteryLevel)
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="analytics-resource-row">
+              <div className="analytics-resource-info">
+                <div className="analytics-resource-title">
+                  Solar generation
+                </div>
+
+                <div className="analytics-resource-subtitle">
+                  Renewable power output
+                </div>
+              </div>
+
+              <strong>
+                {solarPower.toFixed(1)} kW
+              </strong>
+
+              <div className="analytics-resource-bar">
+                <div
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        solarPower * 33.33
+                      )
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="analytics-panel analytics-impact-panel">
+          <div className="analytics-panel-header">
+            <div>
+              <h2>
+                Sustainability impact
+              </h2>
+
+              <p>
+                Prototype impact indicators.
+              </p>
+            </div>
+          </div>
+
+          <div className="analytics-impact-list">
+            <div className="analytics-impact-item">
+              <div className="analytics-impact-number">
+                {estimatedWaterEfficiency}%
+              </div>
+
+              <div>
+                <strong>
+                  Water efficiency
+                </strong>
+
+                <span>
+                  Smarter irrigation decisions
+                </span>
+              </div>
+            </div>
+
+            <div className="analytics-impact-item">
+              <div className="analytics-impact-number">
+                {estimatedSolarUtilization}%
+              </div>
+
+              <div>
+                <strong>
+                  Solar utilization
+                </strong>
+
+                <span>
+                  Renewable energy opportunity
+                </span>
+              </div>
+            </div>
+
+            <div className="analytics-impact-item">
+              <div className="analytics-impact-number">
+                {estimatedEnergyEfficiency}%
+              </div>
+
+              <div>
+                <strong>
+                  Energy efficiency
+                </strong>
+
+                <span>
+                  Coordinated farm energy use
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="analytics-impact-note">
+            These indicators are currently
+            calculated from live prototype state.
+            Historical impact reporting will use
+            stored sensor measurements.
+          </div>
+        </div>
+      </section>
+
+      <section className="analytics-panel">
+        <div className="analytics-panel-header">
+          <div>
+            <h2>
+              AI performance summary
+            </h2>
 
             <p>
-              A prototype estimate based on current generation and
-              pump demand.
+              How the current decision engine is
+              interpreting farm conditions.
+            </p>
+          </div>
+
+          <span className="analytics-active-badge">
+            ENGINE ACTIVE
+          </span>
+        </div>
+
+        <div className="analytics-summary-grid">
+          <div className="analytics-summary-card">
+            <span>
+              Current recommendation
+            </span>
+
+            <strong>
+              {recommendationAction}
+            </strong>
+          </div>
+
+          <div className="analytics-summary-card">
+            <span>
+              Irrigation strategy
+            </span>
+
+            <strong>
+              {irrigationRecommendation
+                ? String(
+                    irrigationRecommendation
+                  )
+                : "Monitoring"}
+            </strong>
+          </div>
+
+          <div className="analytics-summary-card">
+            <span>
+              Energy strategy
+            </span>
+
+            <strong>
+              {energyRecommendation
+                ? String(
+                    energyRecommendation
+                  )
+                : "Optimizing"}
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="analytics-panel">
+        <div className="analytics-panel-header">
+          <div>
+            <h2>
+              Impact measurement roadmap
+            </h2>
+
+            <p>
+              Metrics that will become available
+              when the physical sensor system is
+              connected.
             </p>
           </div>
         </div>
 
-        <div className="trend-chart">
-          <div className="trend-axis">
-            <span>24 kWh</span>
-            <span>18 kWh</span>
-            <span>12 kWh</span>
-            <span>6 kWh</span>
-            <span>0 kWh</span>
-          </div>
+        <div className="analytics-roadmap">
+          <div className="analytics-roadmap-item active">
+            <span>01</span>
 
-          <div className="trend-bars">
-            <div className="trend-column">
-              <div
-                className="trend-bar solar"
-                style={{
-                  height: `${Math.min(
-                    estimatedDailySolar * 4,
-                    180
-                  )}px`,
-                }}
-              ></div>
-
-              <span>Solar</span>
-            </div>
-
-            <div className="trend-column">
-              <div
-                className="trend-bar pump"
-                style={{
-                  height: `${Math.min(
-                    estimatedPumpEnergy * 4,
-                    180
-                  )}px`,
-                }}
-              ></div>
-
-              <span>Pump</span>
-            </div>
-
-            <div className="trend-column">
-              <div
-                className="trend-bar grid"
-                style={{
-                  height: `${Math.min(
-                    estimatedGridEnergy * 4,
-                    180
-                  )}px`,
-                }}
-              ></div>
-
-              <span>Grid</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="analytics-grid">
-        <section className="panel">
-          <div className="panel-header">
             <div>
-              <h3>Farm Sustainability</h3>
+              <strong>
+                Live sensor monitoring
+              </strong>
 
               <p>
-                Indicators generated from the current farm state.
+                Soil moisture, water level,
+                solar generation and battery
+                state.
               </p>
             </div>
           </div>
 
-          <div className="sustainability-list">
-            <div className="sustainability-row">
-              <div>
-                <strong>Water Conservation</strong>
-                <span>
-                  AI-based irrigation planning
-                </span>
-              </div>
+          <div className="analytics-roadmap-item">
+            <span>02</span>
 
-              <strong>
-                {estimatedWaterSaved} L
-              </strong>
-            </div>
-
-            <div className="sustainability-row">
-              <div>
-                <strong>Renewable Energy</strong>
-                <span>
-                  Current solar contribution
-                </span>
-              </div>
-
-              <strong>
-                {solarUtilization.toFixed(0)}%
-              </strong>
-            </div>
-
-            <div className="sustainability-row">
-              <div>
-                <strong>Battery Reserve</strong>
-                <span>
-                  Stored energy available
-                </span>
-              </div>
-
-              <strong>
-                {energy.batteryLevel}%
-              </strong>
-            </div>
-
-            <div className="sustainability-row">
-              <div>
-                <strong>Weather Awareness</strong>
-                <span>
-                  Rain probability integrated
-                </span>
-              </div>
-
-              <strong>
-                {weather.rainProbability}%
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
             <div>
-              <h3>Operational Summary</h3>
+              <strong>
+                Historical tracking
+              </strong>
 
               <p>
-                Current conditions affecting farm performance.
+                Store readings over time to
+                calculate real resource savings.
               </p>
             </div>
           </div>
 
-          <div className="analytics-summary-box">
-            <div>
-              <span>Crop</span>
-              <strong>{farm.crop}</strong>
-            </div>
+          <div className="analytics-roadmap-item">
+            <span>03</span>
 
             <div>
-              <span>Growth Stage</span>
-              <strong>{farm.growthStage}</strong>
-            </div>
-
-            <div>
-              <span>Pump</span>
               <strong>
-                {pump.running ? "Running" : "Stopped"}
+                Farm impact reports
               </strong>
-            </div>
 
-            <div>
-              <span>Temperature</span>
-              <strong>{weather.temperature}°C</strong>
+              <p>
+                Quantify water saved, energy
+                saved and renewable utilization.
+              </p>
             </div>
           </div>
-        </section>
-      </div>
-
-      <section className="panel analytics-report">
-        <div>
-          <span className="section-label">SMART AGRICULTURE REPORT</span>
-
-          <h3>AI-generated performance summary</h3>
-
-          <p>
-            {farm.name} is currently operating with{" "}
-            {energy.solarGeneration} kW of solar generation and{" "}
-            {energy.batteryLevel}% battery reserve. Soil moisture is{" "}
-            {soil.moisture}% and the current water availability is{" "}
-            {water.available.toLocaleString()} L. The analytics
-            engine combines these conditions to support more efficient
-            irrigation and energy planning.
-          </p>
-        </div>
-
-        <div className="report-period">
-          <span>Selected period</span>
-          <strong>{period}</strong>
         </div>
       </section>
     </div>

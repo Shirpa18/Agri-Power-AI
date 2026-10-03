@@ -1,8 +1,17 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
 } from "react";
+
+import {
+  getFarm,
+  getFarmIntelligence,
+  updateFarm,
+  sendSensorData,
+  automaticPumpControl,
+} from "../utils/api";
 
 const FarmContext = createContext(null);
 
@@ -11,44 +20,35 @@ const defaultFarmData = {
     name: "Green Valley Farm",
     location: "Karnataka, India",
     crop: "Tomato",
-    fieldSize: 2.5,
-    growthStage: "Flowering",
-    irrigationMethod: "Drip Irrigation",
-    soilType: "Loamy",
+    field_size: 2.5,
+    growth_stage: "Flowering",
+    irrigation_method: "Drip Irrigation",
+    soil_type: "Loamy",
   },
 
   soil: {
-    soilType: "Loamy",
     moisture: 42,
-    targetMoisture: 55,
+    target_moisture: 55,
   },
 
   water: {
     available: 2400,
     required: 420,
-    reservoirCapacity: 5000,
-    waterSource: "Farm Reservoir",
+    reservoir_capacity: 5000,
   },
 
   weather: {
     temperature: 29,
-    rainProbability: 18,
+    rain_probability: 18,
   },
 
   energy: {
-    solarGeneration: 2.8,
-    solarCapacity: 5,
-    batteryLevel: 78,
-    batteryCapacity: 10,
-    pumpPower: 0.6,
-    gridAvailability: true,
-  },
-
-  sensors: {
-    soil: true,
-    water: true,
-    solar: true,
-    pump: true,
+    solar_generation: 2.8,
+    solar_capacity: 5,
+    battery_level: 78,
+    battery_capacity: 10,
+    pump_power: 0.6,
+    grid_available: true,
   },
 
   pump: {
@@ -56,155 +56,318 @@ const defaultFarmData = {
   },
 };
 
-function loadFarmData() {
-  try {
-    const savedData = localStorage.getItem(
-      "agripower-farm-data"
-    );
-
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-
-      return {
-        ...defaultFarmData,
-        ...parsedData,
-
-        farm: {
-          ...defaultFarmData.farm,
-          ...(parsedData.farm || {}),
-        },
-
-        soil: {
-          ...defaultFarmData.soil,
-          ...(parsedData.soil || {}),
-        },
-
-        water: {
-          ...defaultFarmData.water,
-          ...(parsedData.water || {}),
-        },
-
-        weather: {
-          ...defaultFarmData.weather,
-          ...(parsedData.weather || {}),
-        },
-
-        energy: {
-          ...defaultFarmData.energy,
-          ...(parsedData.energy || {}),
-        },
-
-        sensors: {
-          ...defaultFarmData.sensors,
-          ...(parsedData.sensors || {}),
-        },
-
-        pump: {
-          ...defaultFarmData.pump,
-          ...(parsedData.pump || {}),
-        },
-      };
-    }
-  } catch (error) {
-    console.error(
-      "Error loading farm data:",
-      error
-    );
-  }
-
-  return defaultFarmData;
-}
-
 export function FarmProvider({ children }) {
-  const [data, setData] = useState(loadFarmData);
+  const [data, setData] = useState(defaultFarmData);
 
-  const saveData = (updatedData) => {
+  const [intelligence, setIntelligence] =
+    useState(null);
+
+  const [pumpStatus, setPumpStatus] =
+    useState({
+      pumpRunning: false,
+      recommendedAction: "WAIT",
+      energySource: "GRID",
+      priority: "NORMAL",
+    });
+
+  const [backendOnline, setBackendOnline] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(null);
+
+  const loadBackendData = async () => {
     try {
-      localStorage.setItem(
-        "agripower-farm-data",
-        JSON.stringify(updatedData)
+      const [
+        farm,
+        intelligenceData,
+      ] = await Promise.all([
+        getFarm(),
+        getFarmIntelligence(),
+      ]);
+
+      setData(farm);
+
+      setIntelligence(
+        intelligenceData
       );
-    } catch (error) {
+
+      setPumpStatus({
+        pumpRunning:
+          farm?.pump?.running ?? false,
+
+        recommendedAction:
+          intelligenceData
+            ?.recommendation
+            ?.action || "WAIT",
+
+        energySource:
+          intelligenceData
+            ?.recommendation
+            ?.energySource ||
+          intelligenceData
+            ?.energy
+            ?.recommendedSource ||
+          "GRID",
+
+        priority:
+          intelligenceData
+            ?.recommendation
+            ?.priority || "NORMAL",
+      });
+
+      setBackendOnline(true);
+      setError(null);
+
+    } catch (requestError) {
       console.error(
-        "Error saving farm data:",
-        error
+        "Backend connection error:",
+        requestError
       );
+
+      setBackendOnline(false);
+
+      setError(
+        requestError?.message ||
+          "Unable to connect to backend."
+      );
+
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateFarm = (section, values) => {
-    setData((current) => {
-      const updatedData = {
-        ...current,
+  useEffect(() => {
+    loadBackendData();
 
-        [section]: {
-          ...current[section],
-          ...values,
-        },
-      };
+    const interval = setInterval(
+      () => {
+        loadBackendData();
+      },
+      5000
+    );
 
-      saveData(updatedData);
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
-      return updatedData;
+  const refreshData = async () => {
+    await loadBackendData();
+  };
+
+  const updateFarmData = async (
+    payload
+  ) => {
+    try {
+      const result =
+        await updateFarm(payload);
+
+      if (result?.farm) {
+        setData(result.farm);
+      }
+
+      if (result?.intelligence) {
+        setIntelligence(
+          result.intelligence
+        );
+
+        setPumpStatus({
+          pumpRunning:
+            result?.farm?.pump
+              ?.running ?? false,
+
+          recommendedAction:
+            result
+              ?.intelligence
+              ?.recommendation
+              ?.action || "WAIT",
+
+          energySource:
+            result
+              ?.intelligence
+              ?.recommendation
+              ?.energySource ||
+            result
+              ?.intelligence
+              ?.energy
+              ?.recommendedSource ||
+            "GRID",
+
+          priority:
+            result
+              ?.intelligence
+              ?.recommendation
+              ?.priority ||
+            "NORMAL",
+        });
+      }
+
+      setBackendOnline(true);
+      setError(null);
+
+      return result;
+
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "Failed to update farm."
+      );
+
+      throw requestError;
+    }
+  };
+
+  const startPump = async () => {
+    return updateFarmData({
+      pump: {
+        running: true,
+      },
     });
   };
 
-  const setPumpRunning = (running) => {
-    setData((current) => {
-      const updatedData = {
-        ...current,
-
-        pump: {
-          ...current.pump,
-          running,
-        },
-      };
-
-      saveData(updatedData);
-
-      return updatedData;
+  const stopPump = async () => {
+    return updateFarmData({
+      pump: {
+        running: false,
+      },
     });
+  };
+
+  const runAutomaticControl =
+    async () => {
+      try {
+        const result =
+          await automaticPumpControl();
+
+        if (
+          result?.pumpRunning !==
+          undefined
+        ) {
+          setPumpStatus({
+            pumpRunning:
+              result.pumpRunning,
+
+            recommendedAction:
+              result.recommendedAction ||
+              "WAIT",
+
+            energySource:
+              result.energySource ||
+              "GRID",
+
+            priority:
+              result.priority ||
+              "NORMAL",
+          });
+        }
+
+        await refreshData();
+
+        return result;
+
+      } catch (requestError) {
+        setError(
+          requestError?.message ||
+            "Automatic control failed."
+        );
+
+        throw requestError;
+      }
+    };
+
+  const sendSensors = async (
+    sensorData
+  ) => {
+    try {
+      const result =
+        await sendSensorData(
+          sensorData
+        );
+
+      if (result?.intelligence) {
+        setIntelligence(
+          result.intelligence
+        );
+      }
+
+      await refreshData();
+
+      return result;
+
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "Failed to send sensor data."
+      );
+
+      throw requestError;
+    }
   };
 
   const irrigationRequired =
-    data.soil.moisture <
-      data.soil.targetMoisture &&
-    data.weather.rainProbability < 40 &&
-    data.water.available >= data.water.required;
+    intelligence
+      ?.recommendation
+      ?.irrigation === "IRRIGATE";
 
-  let energySource = "Grid";
-
-  if (
-    data.energy.solarGeneration >=
-    data.energy.pumpPower
-  ) {
-    energySource = "Solar";
-  } else if (
-    data.energy.batteryLevel >= 30
-  ) {
-    energySource = "Battery";
-  }
+  const energySource =
+    intelligence
+      ?.recommendation
+      ?.energySource ||
+    intelligence
+      ?.energy
+      ?.recommendedSource ||
+    "GRID";
 
   const contextValue = {
     data,
     setData,
-    updateFarm,
-    setPumpRunning,
+
+    intelligence,
+
+    pumpStatus,
+
+    backendOnline,
+
+    loading,
+
+    error,
+
+    refreshData,
+
+    updateFarm:
+      updateFarmData,
+
+    startPump,
+
+    stopPump,
+
+    runAutomaticControl,
+
+    sendSensors,
+
     irrigationRequired,
+
     energySource,
   };
 
   return (
-    <FarmContext.Provider value={contextValue}>
+    <FarmContext.Provider
+      value={contextValue}
+    >
       {children}
     </FarmContext.Provider>
   );
 }
 
 export function useFarm() {
-  const context = useContext(FarmContext);
+  const context =
+    useContext(FarmContext);
 
-  if (context === null) {
+  if (!context) {
     throw new Error(
       "useFarm must be used inside FarmProvider"
     );

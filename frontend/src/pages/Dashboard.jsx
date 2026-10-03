@@ -1,697 +1,485 @@
+import React from "react";
 import { useFarm } from "../context/FarmContext";
-import { calculateFarmDecision } from "../utils/decisionEngine";
 
 function Dashboard() {
   const {
-    data,
-    irrigationRequired,
-    energySource,
+    farm,
+    intelligence,
+    loading,
+    error,
+    backendOnline,
   } = useFarm();
 
-  const {
-    farm,
-    soil,
-    water,
-    weather,
-    energy,
-    sensors,
-    pump,
-  } = data;
+  if (loading && !farm) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-loading">
+          Loading farm intelligence...
+        </div>
+      </div>
+    );
+  }
 
-  const decision =
-    calculateFarmDecision(data);
+  if (error && !farm) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-error">
+          <div>
+            <h3>Dashboard unavailable</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const moistureDifference = Math.max(
-    soil.targetMoisture - soil.moisture,
-    0
+  const farmName = farm?.name || "Green Valley Farm";
+  const location =
+    farm?.location || "Karnataka, India";
+
+  const soilMoisture = Number(
+    farm?.soil_moisture ??
+      farm?.soilMoisture ??
+      0
   );
 
-  const waterStatus =
-    water.available >= water.required
-      ? "Sufficient"
-      : "Low";
-
-  const batteryStatus =
-    energy.batteryLevel >= 50
-      ? "Healthy"
-      : energy.batteryLevel >= 30
-        ? "Moderate"
-        : "Low";
-
-  const solarUtilization =
-    energy.solarCapacity > 0
-      ? Math.min(
-          (energy.solarGeneration /
-            energy.solarCapacity) *
-            100,
-          100
-        )
-      : 0;
-
-  const batteryUtilization = Math.min(
-    Math.max(energy.batteryLevel, 0),
-    100
+  const waterLevel = Number(
+    farm?.water_level ??
+      farm?.waterLevel ??
+      0
   );
 
-  const waterUtilization =
-    water.reservoirCapacity > 0
-      ? Math.min(
-          (water.available /
-            water.reservoirCapacity) *
-            100,
-          100
-        )
-      : 0;
+  const solarPower = Number(
+    farm?.solar_power ??
+      farm?.solarPower ??
+      0
+  );
 
-  const sensorCount = [
-    sensors.soil,
-    sensors.water,
-    sensors.solar,
-    sensors.pump,
-  ].filter(Boolean).length;
+  const batteryLevel = Number(
+    farm?.battery_level ??
+      farm?.batteryLevel ??
+      0
+  );
 
-  const actionRequired =
-    decision.irrigationDecision ===
-    "IRRIGATE";
+  const pumpStatus =
+    farm?.pump_status ??
+    farm?.pumpStatus ??
+    farm?.pump_on ??
+    farm?.pumpOn ??
+    false;
 
-  const irrigationMessage =
-    decision.reason;
+  const recommendation = intelligence?.recommendation;
+
+  const recommendationText =
+    typeof recommendation === "string"
+      ? recommendation
+      : recommendation?.action ||
+        intelligence?.message ||
+        "Farm systems are operating normally.";
+
+  const irrigationRecommendation =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.irrigation
+      : null;
+
+  const energyRecommendation =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.energySource
+      : null;
+
+  const recommendationPriority =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.priority
+      : null;
+
+  const getMoistureStatus = () => {
+    if (soilMoisture < 35) return "Low";
+    if (soilMoisture < 55) return "Optimal";
+    return "High";
+  };
+
+  const getWaterStatus = () => {
+    if (waterLevel < 30) return "Low";
+    if (waterLevel < 60) return "Moderate";
+    return "Healthy";
+  };
+
+  const getBatteryStatus = () => {
+    if (batteryLevel < 25) return "Low";
+    if (batteryLevel < 60) return "Moderate";
+    return "Healthy";
+  };
 
   return (
-    <div className="dashboard">
-
-      <div className="page-heading">
+    <div className="dashboard-page">
+      <section className="dashboard-header">
         <div>
-          <h2>
-            {farm.name}
-          </h2>
-
-          <p>
-            {farm.location} · {farm.crop} ·{" "}
-            {farm.fieldSize} hectares
-          </p>
-        </div>
-      </div>
-
-      <div className="stats-grid">
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Soil Moisture
+          <div className="dashboard-overline">
+            FARM OPERATIONS
           </div>
 
-          <div className="stat-value">
-            {soil.moisture}%
-          </div>
-
-          <div className="stat-meta">
-            Target {soil.targetMoisture}%
+          <div className="dashboard-header-content">
+            <h1>{farmName}</h1>
+            <p>{location} · Live farm intelligence</p>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">
-            Water Available
+        <div className="dashboard-status-card">
+          <span
+            className={`dashboard-status-dot ${
+              backendOnline ? "online" : "offline"
+            }`}
+          />
+
+          <div>
+            <div className="dashboard-status-label">
+              System status
+            </div>
+
+            <div className="dashboard-status-value">
+              {backendOnline
+                ? "All systems operational"
+                : "Backend disconnected"}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-stats">
+        <div className="dashboard-stat-card">
+          <div className="dashboard-stat-icon">
+            SOIL
           </div>
 
-          <div className="stat-value">
-            {water.available.toLocaleString()} L
-          </div>
+          <div className="dashboard-stat-content">
+            <div className="dashboard-stat-label">
+              Soil moisture
+            </div>
 
-          <div className="stat-meta">
-            {waterStatus}
+            <div className="dashboard-stat-value">
+              {soilMoisture.toFixed(0)}%
+            </div>
+
+            <div className="dashboard-stat-meta">
+              {getMoistureStatus()} condition
+            </div>
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">
-            Solar Generation
+        <div className="dashboard-stat-card">
+          <div className="dashboard-stat-icon">
+            WATER
           </div>
 
-          <div className="stat-value">
-            {energy.solarGeneration} kW
-          </div>
+          <div className="dashboard-stat-content">
+            <div className="dashboard-stat-label">
+              Water availability
+            </div>
 
-          <div className="stat-meta">
-            {Math.round(solarUtilization)}%
-            utilization
-          </div>
-        </div>
+            <div className="dashboard-stat-value">
+              {waterLevel.toFixed(0)}%
+            </div>
 
-        <div className="stat-card">
-          <div className="stat-label">
-            Battery
-          </div>
-
-          <div className="stat-value">
-            {energy.batteryLevel}%
-          </div>
-
-          <div className="stat-meta">
-            {batteryStatus}
+            <div className="dashboard-stat-meta">
+              {getWaterStatus()} reserve
+            </div>
           </div>
         </div>
 
-      </div>
+        <div className="dashboard-stat-card">
+          <div className="dashboard-stat-icon">
+            SOLAR
+          </div>
 
-      <div className="dashboard-grid">
+          <div className="dashboard-stat-content">
+            <div className="dashboard-stat-label">
+              Solar generation
+            </div>
 
-        <div className="panel">
+            <div className="dashboard-stat-value">
+              {solarPower.toFixed(1)} kW
+            </div>
 
-          <div className="panel-header">
+            <div className="dashboard-stat-meta">
+              Renewable power available
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-stat-card">
+          <div className="dashboard-stat-icon">
+            BAT
+          </div>
+
+          <div className="dashboard-stat-content">
+            <div className="dashboard-stat-label">
+              Battery level
+            </div>
+
+            <div className="dashboard-stat-value">
+              {batteryLevel.toFixed(0)}%
+            </div>
+
+            <div className="dashboard-stat-meta">
+              {getBatteryStatus()} storage
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="dashboard-main-grid">
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
             <div>
-              <p className="eyebrow">
-                AI DECISION
-              </p>
+              <h2 className="dashboard-panel-title">
+                Today's farm status
+              </h2>
 
-              <h3>
-                Irrigation Intelligence
-              </h3>
+              <p className="dashboard-panel-subtitle">
+                Current conditions across water and energy systems
+              </p>
             </div>
 
             <span
-              className={
-                actionRequired
-                  ? "status-badge warning"
-                  : "status-badge success"
-              }
+              className={`status-badge ${
+                pumpStatus
+                  ? "status-success"
+                  : "status-neutral"
+              }`}
             >
-              {actionRequired
-                ? "Action Required"
-                : "Monitoring"}
+              {pumpStatus
+                ? "PUMP ACTIVE"
+                : "PUMP IDLE"}
             </span>
           </div>
 
-          <div className="ai-decision">
+          <div className="dashboard-decision-grid">
+            <div className="dashboard-decision-item">
+              <span className="dashboard-decision-label">
+                Soil moisture
+              </span>
 
-            <div className="decision-status">
               <strong>
-                {actionRequired
-                  ? "Irrigation Recommended"
-                  : "Irrigation Not Required"}
+                {soilMoisture.toFixed(0)}%
               </strong>
-
-              <p>
-                {irrigationMessage}
-              </p>
-
-              <p>
-                {decision.energyReason}
-              </p>
             </div>
 
-            <div className="decision-grid">
-
-              <div>
-                <span>
-                  Current Moisture
-                </span>
-
-                <strong>
-                  {soil.moisture}%
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Target Moisture
-                </span>
-
-                <strong>
-                  {soil.targetMoisture}%
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Moisture Gap
-                </span>
-
-                <strong>
-                  {moistureDifference}%
-                </strong>
-              </div>
-
-              <div>
-                <span>
-                  Rain Probability
-                </span>
-
-                <strong>
-                  {weather.rainProbability}%
-                </strong>
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="panel">
-
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                ENERGY MANAGEMENT
-              </p>
-
-              <h3>
-                Energy Flow
-              </h3>
-            </div>
-
-            <span className="status-badge success">
-              {decision.energyDecision}
-            </span>
-          </div>
-
-          <div className="energy-flow">
-
-            <div
-              className={
-                decision.energyDecision ===
-                "SOLAR"
-                  ? "energy-row active"
-                  : "energy-row"
-              }
-            >
-              <div>
-                <strong>
-                  Solar
-                </strong>
-
-                <span>
-                  {energy.solarGeneration} kW
-                </span>
-              </div>
-
-              <span>
-                {Math.round(
-                  solarUtilization
-                )}%
+            <div className="dashboard-decision-item">
+              <span className="dashboard-decision-label">
+                Water reserve
               </span>
+
+              <strong>
+                {waterLevel.toFixed(0)}%
+              </strong>
             </div>
 
-            <div
-              className={
-                decision.energyDecision ===
-                "BATTERY"
-                  ? "energy-row active"
-                  : "energy-row"
-              }
-            >
-              <div>
-                <strong>
-                  Battery
-                </strong>
-
-                <span>
-                  {energy.batteryCapacity} kWh
-                  capacity
-                </span>
-              </div>
-
-              <span>
-                {energy.batteryLevel}%
+            <div className="dashboard-decision-item">
+              <span className="dashboard-decision-label">
+                Solar output
               </span>
+
+              <strong>
+                {solarPower.toFixed(1)} kW
+              </strong>
             </div>
 
-            <div
-              className={
-                decision.energyDecision ===
-                "GRID"
-                  ? "energy-row active"
-                  : "energy-row"
-              }
-            >
-              <div>
-                <strong>
-                  Grid
-                </strong>
-
-                <span>
-                  {energy.gridAvailability
-                    ? "Available"
-                    : "Unavailable"}
-                </span>
-              </div>
-
-              <span>
-                Backup
+            <div className="dashboard-decision-item">
+              <span className="dashboard-decision-label">
+                Battery
               </span>
-            </div>
 
+              <strong>
+                {batteryLevel.toFixed(0)}%
+              </strong>
+            </div>
           </div>
 
-        </div>
-
-      </div>
-
-      <div className="dashboard-grid">
-
-        <div className="panel">
-
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                WATER INTELLIGENCE
-              </p>
-
-              <h3>
-                Water Status
-              </h3>
+          <div className="dashboard-progress">
+            <div className="dashboard-progress-header">
+              <span>Soil moisture</span>
+              <strong>
+                {soilMoisture.toFixed(0)}%
+              </strong>
             </div>
 
-            <span
-              className={
-                waterStatus === "Sufficient"
-                  ? "status-badge success"
-                  : "status-badge warning"
-              }
-            >
-              {waterStatus}
-            </span>
-          </div>
-
-          <div className="metric-large">
-
-            <strong>
-              {water.available.toLocaleString()} L
-            </strong>
-
-            <span>
-              available of{" "}
-              {water.reservoirCapacity.toLocaleString()} L
-            </span>
-
-            <div className="progress-bar">
+            <div className="dashboard-progress-track">
               <div
-                className="progress-value"
+                className="dashboard-progress-fill"
                 style={{
-                  width: `${waterUtilization}%`,
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, soilMoisture)
+                  )}%`,
                 }}
               />
             </div>
-
           </div>
 
-          <div className="detail-grid">
-
-            <div>
-              <span>
-                Required
-              </span>
-
+          <div className="dashboard-progress">
+            <div className="dashboard-progress-header">
+              <span>Water availability</span>
               <strong>
-                {water.required} L
+                {waterLevel.toFixed(0)}%
               </strong>
             </div>
 
-            <div>
-              <span>
-                Water Source
-              </span>
+            <div className="dashboard-progress-track">
+              <div
+                className="dashboard-progress-fill"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, waterLevel)
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
 
+          <div className="dashboard-progress">
+            <div className="dashboard-progress-header">
+              <span>Battery charge</span>
               <strong>
-                {water.waterSource}
+                {batteryLevel.toFixed(0)}%
               </strong>
             </div>
 
+            <div className="dashboard-progress-track">
+              <div
+                className="dashboard-progress-fill"
+                style={{
+                  width: `${Math.min(
+                    100,
+                    Math.max(0, batteryLevel)
+                  )}%`,
+                }}
+              />
+            </div>
           </div>
-
         </div>
 
-        <div className="panel">
-
-          <div className="panel-header">
+        <div className="dashboard-panel">
+          <div className="dashboard-panel-header">
             <div>
-              <p className="eyebrow">
-                FARM SYSTEMS
+              <h2 className="dashboard-panel-title">
+                AI farm decision
+              </h2>
+
+              <p className="dashboard-panel-subtitle">
+                Recommended action based on current conditions
               </p>
-
-              <h3>
-                Connected Systems
-              </h3>
-            </div>
-
-            <span className="status-badge success">
-              {sensorCount}/4 Online
-            </span>
-          </div>
-
-          <div className="system-list">
-
-            <div className="system-row">
-              <span>
-                Soil Sensor
-              </span>
-
-              <strong
-                className={
-                  sensors.soil
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.soil
-                  ? "Connected"
-                  : "Offline"}
-              </strong>
-            </div>
-
-            <div className="system-row">
-              <span>
-                Water Sensor
-              </span>
-
-              <strong
-                className={
-                  sensors.water
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.water
-                  ? "Connected"
-                  : "Offline"}
-              </strong>
-            </div>
-
-            <div className="system-row">
-              <span>
-                Solar System
-              </span>
-
-              <strong
-                className={
-                  sensors.solar
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.solar
-                  ? "Connected"
-                  : "Offline"}
-              </strong>
-            </div>
-
-            <div className="system-row">
-              <span>
-                Pump Controller
-              </span>
-
-              <strong
-                className={
-                  sensors.pump
-                    ? "online"
-                    : "offline"
-                }
-              >
-                {sensors.pump
-                  ? "Connected"
-                  : "Offline"}
-              </strong>
-            </div>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="panel">
-
-        <div className="panel-header">
-
-          <div>
-            <p className="eyebrow">
-              AI FARM INSIGHT
-            </p>
-
-            <h3>
-              Current Farm Recommendation
-            </h3>
-          </div>
-
-        </div>
-
-        <div className="insight-content">
-
-          <div>
-            <strong>
-              {actionRequired
-                ? "Prepare irrigation"
-                : "Continue monitoring"}
-            </strong>
-
-            <p>
-              {decision.reason}{" "}
-              {water.available.toLocaleString()} L
-              of water is available and{" "}
-              {decision.energyDecision.toLowerCase()}
-              {" "}
-              is currently the preferred energy
-              source.
-            </p>
-
-            <p>
-              Energy logic:{" "}
-              {decision.energyReason}
-            </p>
-
-          </div>
-
-        </div>
-
-      </div>
-
-      <div className="dashboard-grid">
-
-        <div className="panel">
-
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                CROP PROFILE
-              </p>
-
-              <h3>
-                Farm Configuration
-              </h3>
             </div>
           </div>
 
-          <div className="detail-grid">
-
-            <div>
-              <span>
-                Crop
-              </span>
-
-              <strong>
-                {farm.crop}
-              </strong>
+          <div className="dashboard-ai-card">
+            <div className="dashboard-ai-label">
+              RECOMMENDED ACTION
             </div>
 
-            <div>
-              <span>
-                Growth Stage
-              </span>
+            <p>{recommendationText}</p>
 
-              <strong>
-                {farm.growthStage}
-              </strong>
-            </div>
+            {irrigationRecommendation && (
+              <div className="dashboard-recommendation-detail">
+                <span>Irrigation</span>
 
-            <div>
-              <span>
-                Field Size
-              </span>
+                <strong>
+                  {String(irrigationRecommendation)}
+                </strong>
+              </div>
+            )}
 
-              <strong>
-                {farm.fieldSize} ha
-              </strong>
-            </div>
+            {energyRecommendation && (
+              <div className="dashboard-recommendation-detail">
+                <span>Energy source</span>
 
-            <div>
-              <span>
-                Irrigation
-              </span>
+                <strong>
+                  {String(energyRecommendation)}
+                </strong>
+              </div>
+            )}
 
-              <strong>
-                {farm.irrigationMethod}
-              </strong>
-            </div>
+            {recommendationPriority && (
+              <div className="dashboard-recommendation-detail">
+                <span>Decision priority</span>
 
+                <strong>
+                  {String(recommendationPriority)}
+                </strong>
+              </div>
+            )}
           </div>
 
-        </div>
-
-        <div className="panel">
-
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                LIVE STATUS
-              </p>
-
-              <h3>
-                Pump & Weather
-              </h3>
-            </div>
-          </div>
-
-          <div className="detail-grid">
-
-            <div>
-              <span>
-                Pump
+          <div className="dashboard-metric-list">
+            <div className="dashboard-metric-row">
+              <span className="dashboard-metric-name">
+                Irrigation system
               </span>
 
-              <strong>
-                {pump.running
+              <span className="dashboard-metric-value">
+                {pumpStatus
                   ? "Running"
-                  : "Stopped"}
-              </strong>
+                  : "Standby"}
+              </span>
             </div>
 
-            <div>
-              <span>
-                Pump Power
+            <div className="dashboard-metric-row">
+              <span className="dashboard-metric-name">
+                Renewable generation
               </span>
 
-              <strong>
-                {energy.pumpPower} kW
-              </strong>
+              <span className="dashboard-metric-value">
+                {solarPower.toFixed(1)} kW
+              </span>
             </div>
 
-            <div>
-              <span>
-                Temperature
+            <div className="dashboard-metric-row">
+              <span className="dashboard-metric-name">
+                Battery reserve
               </span>
 
-              <strong>
-                {weather.temperature}°C
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Rain Probability
+              <span className="dashboard-metric-value">
+                {batteryLevel.toFixed(0)}%
               </span>
-
-              <strong>
-                {weather.rainProbability}%
-              </strong>
             </div>
+          </div>
+        </div>
+      </section>
 
+      <section className="dashboard-panel dashboard-pump-card">
+        <div className="dashboard-panel-header">
+          <div>
+            <h2 className="dashboard-panel-title">
+              Irrigation control
+            </h2>
+
+            <p className="dashboard-panel-subtitle">
+              Current irrigation system state
+            </p>
           </div>
 
+          <span
+            className={`status-badge ${
+              pumpStatus
+                ? "status-success"
+                : "status-neutral"
+            }`}
+          >
+            {pumpStatus ? "ACTIVE" : "STANDBY"}
+          </span>
         </div>
 
-      </div>
-
+        <div className="dashboard-pump-status">
+          <span>
+            {pumpStatus
+              ? "The irrigation pump is currently running based on the farm control state."
+              : "The irrigation pump is currently idle. The system is monitoring soil and water conditions."}
+          </span>
+        </div>
+      </section>
     </div>
   );
 }

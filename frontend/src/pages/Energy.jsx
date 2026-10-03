@@ -1,590 +1,428 @@
+import React from "react";
 import { useFarm } from "../context/FarmContext";
-import { calculateFarmDecision } from "../utils/decisionEngine";
 
 function Energy() {
-  const { data, energySource } = useFarm();
-
   const {
     farm,
-    energy,
-    pump,
-  } = data;
+    intelligence,
+    loading,
+    error,
+  } = useFarm();
 
-  const decision = calculateFarmDecision(data);
+  if (loading && !farm) {
+    return (
+      <div className="energy-page">
+        <div className="dashboard-loading">
+          Loading energy management...
+        </div>
+      </div>
+    );
+  }
 
-  const solarUtilization =
-    energy.solarCapacity > 0
+  if (error && !farm) {
+    return (
+      <div className="energy-page">
+        <div className="dashboard-error">
+          <div>
+            <h3>Energy management unavailable</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const solarPower = Number(
+    farm?.solar_power ??
+      farm?.solarPower ??
+      0
+  );
+
+  const batteryLevel = Number(
+    farm?.battery_level ??
+      farm?.batteryLevel ??
+      0
+  );
+
+  const pumpStatus =
+    farm?.pump_status ??
+    farm?.pumpStatus ??
+    farm?.pump_on ??
+    farm?.pumpOn ??
+    false;
+
+  const recommendation =
+    intelligence?.recommendation;
+
+  const energySource =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.energySource
+      : null;
+
+  const priority =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.priority
+      : null;
+
+  const estimatedPumpDemand = pumpStatus
+    ? 2.4
+    : 0;
+
+  const estimatedSolarCoverage =
+    estimatedPumpDemand > 0
       ? Math.min(
-          (energy.solarGeneration / energy.solarCapacity) * 100,
-          100
+          100,
+          (solarPower / estimatedPumpDemand) * 100
         )
+      : solarPower > 0
+      ? 100
       : 0;
 
-  const batteryCapacity = energy.batteryCapacity || 1;
+  const batteryStatus =
+    batteryLevel < 20
+      ? "Critical"
+      : batteryLevel < 40
+      ? "Low"
+      : batteryLevel < 70
+      ? "Moderate"
+      : "Healthy";
 
-  const batteryEnergy =
-    (energy.batteryLevel / 100) * batteryCapacity;
+  const batteryStatusClass =
+    batteryLevel < 20
+      ? "status-danger"
+      : batteryLevel < 40
+      ? "status-warning"
+      : "status-success";
 
-  const pumpCoverage =
-    energy.pumpPower > 0
-      ? Math.min(
-          (energy.solarGeneration / energy.pumpPower) * 100,
-          100
-        )
-      : 0;
-
-  const getEnergyStatus = () => {
-    if (decision.energyDecision === "SOLAR") {
-      return "Solar power available";
-    }
-
-    if (decision.energyDecision === "BATTERY") {
-      return "Battery support active";
-    }
-
-    if (decision.energyDecision === "GRID") {
-      return "Grid fallback available";
-    }
-
-    return "Energy unavailable";
-  };
-
-  const getEnergyStatusClass = () => {
-    if (decision.energyDecision === "UNAVAILABLE") {
-      return "warning";
-    }
-
-    return "success";
-  };
+  const energyStatus =
+    solarPower >= 2.5
+      ? "Strong renewable generation"
+      : solarPower > 0
+      ? "Partial renewable generation"
+      : "No solar generation";
 
   return (
     <div className="energy-page">
-      <div className="page-heading">
+      <section className="energy-header">
         <div>
-          <p className="eyebrow">Energy Intelligence</p>
+          <div className="energy-overline">
+            ENERGY MANAGEMENT
+          </div>
 
-          <h2>Energy Management</h2>
+          <h1>
+            Farm energy intelligence
+          </h1>
 
           <p>
-            Optimize solar, battery and grid energy for
-            efficient farm operations.
+            Coordinate renewable generation,
+            battery storage and irrigation demand
+            to reduce unnecessary grid energy use.
           </p>
         </div>
 
-        <span
-          className={`status-badge ${getEnergyStatusClass()}`}
-        >
-          {getEnergyStatus()}
-        </span>
-      </div>
+        <div className="energy-header-status">
+          <span className="energy-status-dot" />
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-label">
-            Solar Generation
+          <div>
+            <span>Energy state</span>
+            <strong>{energyStatus}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section className="energy-kpi-grid">
+        <div className="energy-kpi-card">
+          <div className="energy-kpi-label">
+            Solar generation
           </div>
 
-          <div className="stat-value">
-            {energy.solarGeneration}
-            <span> kW</span>
+          <div className="energy-kpi-value">
+            {solarPower.toFixed(1)}
+            <span>kW</span>
           </div>
 
-          <div className="stat-meta">
-            Capacity: {energy.solarCapacity} kW
+          <div className="energy-kpi-meta">
+            Current renewable output
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">
-            Battery Level
+        <div className="energy-kpi-card">
+          <div className="energy-kpi-label">
+            Battery reserve
           </div>
 
-          <div className="stat-value">
-            {energy.batteryLevel}
+          <div className="energy-kpi-value">
+            {batteryLevel.toFixed(0)}
             <span>%</span>
           </div>
 
-          <div className="stat-meta">
-            {batteryEnergy.toFixed(1)} kWh stored
+          <div className="energy-kpi-meta">
+            {batteryStatus} storage state
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-label">
-            Pump Power
+        <div className="energy-kpi-card">
+          <div className="energy-kpi-label">
+            Pump demand
           </div>
 
-          <div className="stat-value">
-            {energy.pumpPower}
-            <span> kW</span>
+          <div className="energy-kpi-value">
+            {estimatedPumpDemand.toFixed(1)}
+            <span>kW</span>
           </div>
 
-          <div className="stat-meta">
-            Pump status:{" "}
-            {pump.running ? "Running" : "Standby"}
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="stat-label">
-            Grid Availability
-          </div>
-
-          <div className="stat-value">
-            {energy.gridAvailability
-              ? "Available"
-              : "Offline"}
-          </div>
-
-          <div className="stat-meta">
-            Backup energy source
+          <div className="energy-kpi-meta">
+            Estimated irrigation load
           </div>
         </div>
-      </div>
 
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-header">
+        <div className="energy-kpi-card">
+          <div className="energy-kpi-label">
+            Solar coverage
+          </div>
+
+          <div className="energy-kpi-value">
+            {estimatedSolarCoverage.toFixed(0)}
+            <span>%</span>
+          </div>
+
+          <div className="energy-kpi-meta">
+            Estimated pump coverage
+          </div>
+        </div>
+      </section>
+
+      <section className="energy-main-grid">
+        <div className="energy-flow-card">
+          <div className="energy-panel-header">
             <div>
-              <p className="eyebrow">
-                AI Energy Decision
+              <h2>Energy flow</h2>
+
+              <p>
+                How farm energy resources interact
+                with irrigation demand.
               </p>
-
-              <h3>Recommended Energy Source</h3>
-            </div>
-
-            <span
-              className={`status-badge ${
-                decision.energyDecision === "UNAVAILABLE"
-                  ? "warning"
-                  : "success"
-              }`}
-            >
-              {decision.energyDecision}
-            </span>
-          </div>
-
-          <div className="ai-decision">
-            <div className="decision-status">
-              <div>
-                <span className="metric-label">
-                  Current recommendation
-                </span>
-
-                <strong>
-                  {decision.energyDecision}
-                </strong>
-              </div>
-
-              <div>
-                <span className="metric-label">
-                  Farm
-                </span>
-
-                <strong>
-                  {farm.name}
-                </strong>
-              </div>
-            </div>
-
-            <div className="decision-grid">
-              <div>
-                <span className="metric-label">
-                  Energy logic
-                </span>
-
-                <p>
-                  {decision.energyReason}
-                </p>
-              </div>
-
-              <div>
-                <span className="metric-label">
-                  Pump requirement
-                </span>
-
-                <p>
-                  {energy.pumpPower} kW
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                Energy Flow
-              </p>
-
-              <h3>Source Priority</h3>
             </div>
           </div>
 
           <div className="energy-flow">
-            <div
-              className={
-                decision.energyDecision === "SOLAR"
-                  ? "energy-row active"
-                  : "energy-row"
-              }
-            >
+            <div className="energy-flow-node">
+              <div className="energy-node-symbol">
+                PV
+              </div>
+
               <div>
                 <strong>Solar</strong>
 
                 <span>
-                  Renewable primary source
+                  {solarPower.toFixed(1)} kW
                 </span>
               </div>
-
-              <strong>
-                {energy.solarGeneration} kW
-              </strong>
             </div>
 
-            <div
-              className={
-                decision.energyDecision === "BATTERY"
-                  ? "energy-row active"
-                  : "energy-row"
-              }
-            >
+            <div className="energy-flow-arrow">
+              →
+            </div>
+
+            <div className="energy-flow-node">
+              <div className="energy-node-symbol">
+                BAT
+              </div>
+
               <div>
                 <strong>Battery</strong>
 
                 <span>
-                  Stored renewable energy
+                  {batteryLevel.toFixed(0)}%
                 </span>
               </div>
-
-              <strong>
-                {energy.batteryLevel}%
-              </strong>
             </div>
 
-            <div
-              className={
-                decision.energyDecision === "GRID"
-                  ? "energy-row active"
-                  : "energy-row"
-              }
-            >
+            <div className="energy-flow-arrow">
+              →
+            </div>
+
+            <div className="energy-flow-node">
+              <div className="energy-node-symbol">
+                LOAD
+              </div>
+
               <div>
-                <strong>Grid</strong>
+                <strong>Farm load</strong>
 
                 <span>
-                  Backup energy source
+                  {estimatedPumpDemand.toFixed(1)} kW
                 </span>
               </div>
-
-              <strong>
-                {energy.gridAvailability
-                  ? "Available"
-                  : "Offline"}
-              </strong>
             </div>
           </div>
-        </section>
-      </div>
 
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                Solar Performance
-              </p>
+          <div className="energy-flow-note">
+            <span className="energy-note-dot" />
 
-              <h3>Solar Utilization</h3>
-            </div>
-
-            <strong>
-              {solarUtilization.toFixed(0)}%
-            </strong>
-          </div>
-
-          <div className="progress-bar">
-            <div
-              className="progress-value"
-              style={{
-                width: `${solarUtilization}%`,
-              }}
-            />
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span className="metric-label">
-                Current generation
-              </span>
-
-              <strong>
-                {energy.solarGeneration} kW
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Solar capacity
-              </span>
-
-              <strong>
-                {energy.solarCapacity} kW
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                Battery Storage
-              </p>
-
-              <h3>Battery Status</h3>
-            </div>
-
-            <strong>
-              {energy.batteryLevel}%
-            </strong>
-          </div>
-
-          <div className="progress-bar">
-            <div
-              className="progress-value"
-              style={{
-                width: `${Math.min(
-                  energy.batteryLevel,
-                  100
-                )}%`,
-              }}
-            />
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span className="metric-label">
-                Stored energy
-              </span>
-
-              <strong>
-                {batteryEnergy.toFixed(1)} kWh
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Battery capacity
-              </span>
-
-              <strong>
-                {energy.batteryCapacity} kWh
-              </strong>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">
-              Pump Intelligence
+            <p>
+              {solarPower >= estimatedPumpDemand &&
+              estimatedPumpDemand > 0
+                ? "Available solar generation can cover the estimated irrigation demand."
+                : solarPower > 0
+                ? "Solar generation is available, but additional energy may be required for irrigation."
+                : "Solar generation is currently unavailable."}
             </p>
+          </div>
+        </div>
 
-            <h3>Solar Pump Coverage</h3>
+        <div className="energy-decision-card">
+          <div className="energy-decision-label">
+            AI ENERGY DECISION
           </div>
 
-          <span
-            className={`status-badge ${
-              pumpCoverage >= 100
-                ? "success"
-                : "warning"
-            }`}
-          >
-            {pumpCoverage >= 100
-              ? "Fully Covered"
-              : "Partially Covered"}
-          </span>
-        </div>
+          <h2>
+            {energySource
+              ? String(energySource)
+              : "Optimizing energy source"}
+          </h2>
 
-        <div className="metric-large">
-          {pumpCoverage.toFixed(0)}%
-        </div>
+          <p>
+            The farm intelligence engine uses
+            current generation, storage and
+            irrigation demand to determine the
+            preferred energy source.
+          </p>
 
-        <p>
-          Current solar generation can cover{" "}
-          {pumpCoverage.toFixed(0)}% of the pump's
-          {` `}{energy.pumpPower} kW power requirement.
-        </p>
+          <div className="energy-decision-row">
+            <span>Priority</span>
 
-        <div className="progress-bar">
-          <div
-            className="progress-value"
-            style={{
-              width: `${pumpCoverage}%`,
-            }}
-          />
+            <strong>
+              {priority
+                ? String(priority)
+                : "Normal"}
+            </strong>
+          </div>
+
+          <div className="energy-decision-row">
+            <span>Battery state</span>
+
+            <strong>
+              {batteryLevel.toFixed(0)}%
+            </strong>
+          </div>
+
+          <div className="energy-decision-row">
+            <span>Solar output</span>
+
+            <strong>
+              {solarPower.toFixed(1)} kW
+            </strong>
+          </div>
         </div>
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
+      <section className="energy-panel">
+        <div className="energy-panel-header">
           <div>
-            <p className="eyebrow">
-              AI Decision Logic
-            </p>
+            <h2>Energy source strategy</h2>
 
-            <h3>Energy Selection Process</h3>
+            <p>
+              The operating hierarchy used by the
+              farm intelligence layer.
+            </p>
           </div>
         </div>
 
-        <div className="condition-grid">
-          <div className="condition-item">
+        <div className="energy-strategy-grid">
+          <div className="energy-strategy-item active">
+            <div className="energy-strategy-number">
+              01
+            </div>
+
+            <div>
+              <h3>Solar</h3>
+
+              <p>
+                Use available renewable generation
+                whenever farm demand can be served.
+              </p>
+            </div>
+          </div>
+
+          <div className="energy-strategy-item">
+            <div className="energy-strategy-number">
+              02
+            </div>
+
+            <div>
+              <h3>Battery</h3>
+
+              <p>
+                Use stored energy when solar output
+                does not match the required load.
+              </p>
+            </div>
+          </div>
+
+          <div className="energy-strategy-item">
+            <div className="energy-strategy-number">
+              03
+            </div>
+
+            <div>
+              <h3>Grid</h3>
+
+              <p>
+                Use external power only when
+                renewable and stored energy are
+                insufficient.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="energy-panel">
+        <div className="energy-panel-header">
+          <div>
+            <h2>Energy monitoring</h2>
+
+            <p>
+              Current values being considered by
+              the decision engine.
+            </p>
+          </div>
+        </div>
+
+        <div className="energy-monitor-grid">
+          <div>
             <span>Solar generation</span>
 
             <strong>
-              {energy.solarGeneration >=
-              energy.pumpPower
-                ? "Sufficient"
-                : "Insufficient"}
+              {solarPower.toFixed(1)} kW
             </strong>
           </div>
 
-          <div className="condition-item">
-            <span>Battery reserve</span>
-
-            <strong>
-              {energy.batteryLevel >= 30
-                ? "Available"
-                : "Low"}
-            </strong>
-          </div>
-
-          <div className="condition-item">
-            <span>Grid status</span>
-
-            <strong>
-              {energy.gridAvailability
-                ? "Available"
-                : "Offline"}
-            </strong>
-          </div>
-
-          <div className="condition-item">
-            <span>Selected source</span>
-
-            <strong>
-              {decision.energyDecision}
-            </strong>
-          </div>
-        </div>
-
-        <div className="insight-content">
           <div>
-            <span className="metric-label">
-              Decision explanation
-            </span>
+            <span>Battery charge</span>
 
-            <p>
-              {decision.energyReason}
-            </p>
+            <strong>
+              {batteryLevel.toFixed(0)}%
+            </strong>
           </div>
-        </div>
-      </section>
 
-      <section className="panel">
-        <div className="panel-header">
           <div>
-            <p className="eyebrow">
-              Farm Energy Status
-            </p>
+            <span>Irrigation load</span>
 
-            <h3>Current Operating Conditions</h3>
-          </div>
-        </div>
-
-        <div className="system-list">
-          <div className="system-row">
-            <div>
-              <strong>Solar System</strong>
-
-              <span>
-                {energy.solarGeneration} kW generation
-              </span>
-            </div>
-
-            <span className="online">
-              Online
-            </span>
+            <strong>
+              {estimatedPumpDemand.toFixed(1)} kW
+            </strong>
           </div>
 
-          <div className="system-row">
-            <div>
-              <strong>Battery System</strong>
+          <div>
+            <span>Battery condition</span>
 
-              <span>
-                {energy.batteryLevel}% charge
-              </span>
-            </div>
-
-            <span
-              className={
-                energy.batteryLevel >= 30
-                  ? "online"
-                  : "offline"
-              }
-            >
-              {energy.batteryLevel >= 30
-                ? "Available"
-                : "Low"}
-            </span>
-          </div>
-
-          <div className="system-row">
-            <div>
-              <strong>Grid Connection</strong>
-
-              <span>
-                Backup energy source
-              </span>
-            </div>
-
-            <span
-              className={
-                energy.gridAvailability
-                  ? "online"
-                  : "offline"
-              }
-            >
-              {energy.gridAvailability
-                ? "Online"
-                : "Offline"}
-            </span>
-          </div>
-
-          <div className="system-row">
-            <div>
-              <strong>Farm Pump</strong>
-
-              <span>
-                {energy.pumpPower} kW rated power
-              </span>
-            </div>
-
-            <span
-              className={
-                pump.running
-                  ? "online"
-                  : "offline"
-              }
-            >
-              {pump.running
-                ? "Running"
-                : "Standby"}
-            </span>
+            <strong>
+              {batteryStatus}
+            </strong>
           </div>
         </div>
       </section>

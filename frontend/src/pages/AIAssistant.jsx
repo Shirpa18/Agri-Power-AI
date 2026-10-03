@@ -1,536 +1,514 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
+
 import { useFarm } from "../context/FarmContext";
-import { calculateFarmDecision } from "../utils/decisionEngine";
+import { askFarmAI } from "../services/aiService";
 
 function AIAssistant() {
-  const { data } = useFarm();
-
   const {
-    farm,
-    soil,
-    water,
-    weather,
-    energy,
-    pump,
-  } = data;
+    data,
+    intelligence,
+    loading,
+    error,
+    backendOnline,
+  } = useFarm();
 
-  const decision = calculateFarmDecision(data);
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState("");
 
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      sender: "ai",
-      text:
-        `Hello. I am monitoring ${farm.name}. ` +
-        `I can explain irrigation, water and energy decisions ` +
-        `using the current farm data.`,
-    },
-  ]);
+  const farm = data?.farm;
+  const soil = data?.soil;
+  const water = data?.water;
+  const weather = data?.weather;
+  const energy = data?.energy;
+  const pump = data?.pump;
 
-  const [input, setInput] = useState("");
+  const farmName =
+    farm?.name || "Green Valley Farm";
 
-  const recommendation = useMemo(() => {
-    if (
-      decision.irrigationDecision === "IRRIGATE"
-    ) {
-      return (
-        `Irrigation is currently recommended. ` +
-        `${decision.reason} ` +
-        `The selected energy source is ${decision.energyDecision}. ` +
-        `${decision.energyReason}`
-      );
-    }
+  const soilMoisture = Number(
+    soil?.moisture ?? 0
+  );
 
-    if (
-      decision.irrigationDecision === "WAIT"
-    ) {
-      return (
-        `Irrigation should currently wait. ` +
-        `${decision.reason} ` +
-        `${decision.energyReason}`
-      );
-    }
+  const targetMoisture = Number(
+    soil?.target_moisture ?? 0
+  );
 
-    return decision.reason;
-  }, [decision]);
+  const waterAvailable = Number(
+    water?.available ?? 0
+  );
 
-  const generateResponse = (question) => {
-    const text = question.toLowerCase();
+  const waterRequired = Number(
+    intelligence?.water?.required ??
+      water?.required ??
+      0
+  );
 
-    if (
-      text.includes("irrigation") ||
-      text.includes("irrigate") ||
-      text.includes("water the crop")
-    ) {
-      return (
-        `Current irrigation decision: ` +
-        `${decision.irrigationDecision}. ` +
-        `${decision.reason}`
-      );
-    }
+  const solarPower = Number(
+    energy?.solar_generation ?? 0
+  );
 
-    if (
-      text.includes("soil") ||
-      text.includes("moisture")
-    ) {
-      return (
-        `Soil moisture is currently ${soil.moisture}%. ` +
-        `The target is ${soil.targetMoisture}%. ` +
-        `The current moisture gap is ${decision.moistureGap}%.`
-      );
-    }
+  const batteryLevel = Number(
+    energy?.battery_level ?? 0
+  );
 
-    if (
-      text.includes("water") ||
-      text.includes("reservoir")
-    ) {
-      return (
-        `The farm currently has ${water.available} L of available water. ` +
-        `The calculated requirement is ${water.required} L. ` +
-        `Water availability is currently ` +
-        `${decision.waterAvailable ? "sufficient" : "insufficient"}.`
-      );
-    }
+  const pumpRunning = Boolean(
+    pump?.running
+  );
 
-    if (
-      text.includes("solar") ||
-      text.includes("sun")
-    ) {
-      return (
-        `Solar generation is currently ${energy.solarGeneration} kW ` +
-        `from a ${energy.solarCapacity} kW system. ` +
-        `${decision.solarAvailable
-          ? "Solar can currently support the pump."
-          : "Solar generation is currently insufficient for the pump."}`
-      );
-    }
+  const currentFarmContext = useMemo(
+    () => ({
+      farm,
+      soil,
+      water,
+      weather,
+      energy,
+      pump,
+      intelligence,
+    }),
+    [
+      farm,
+      soil,
+      water,
+      weather,
+      energy,
+      pump,
+      intelligence,
+    ]
+  );
 
-    if (
-      text.includes("battery") ||
-      text.includes("charge")
-    ) {
-      return (
-        `The battery is currently at ${energy.batteryLevel}%. ` +
-        `${decision.batteryAvailable
-          ? "It is available as a backup energy source."
-          : "Its current level is below the backup threshold."}`
-      );
-    }
+  const suggestedQuestions = [
+    "Should I irrigate the field now?",
+    "How much water do I need?",
+    "What energy source should I use?",
+    "What is my soil moisture?",
+    "Why is the pump not running?",
+    "How can you help me?",
+  ];
 
-    if (
-      text.includes("energy") ||
-      text.includes("power")
-    ) {
-      return (
-        `The current energy decision is ${decision.energyDecision}. ` +
-        `${decision.energyReason}`
-      );
-    }
-
-    if (
-      text.includes("pump")
-    ) {
-      return (
-        `The pump is currently ` +
-        `${pump.running ? "running" : "on standby"} ` +
-        `and requires ${energy.pumpPower} kW. ` +
-        `The selected energy source is ${decision.energyDecision}.`
-      );
-    }
-
-    if (
-      text.includes("weather") ||
-      text.includes("rain")
-    ) {
-      return (
-        `The current temperature is ${weather.temperature}°C ` +
-        `and rain probability is ${weather.rainProbability}%.`
-      );
-    }
-
-    if (
-      text.includes("recommend") ||
-      text.includes("recommendation") ||
-      text.includes("what should")
-    ) {
-      return recommendation;
-    }
-
-    if (
-      text.includes("status") ||
-      text.includes("condition")
-    ) {
-      return (
-        `Farm status: soil moisture ${soil.moisture}%, ` +
-        `water ${water.available} L, solar ${energy.solarGeneration} kW, ` +
-        `battery ${energy.batteryLevel}%, ` +
-        `rain probability ${weather.rainProbability}%. ` +
-        `Current irrigation decision: ` +
-        `${decision.irrigationDecision}.`
-      );
-    }
-
-    return (
-      `Based on the current farm data, the irrigation decision is ` +
-      `${decision.irrigationDecision} and the selected energy source is ` +
-      `${decision.energyDecision}. ` +
-      `You can ask me about soil moisture, irrigation, water, solar, ` +
-      `battery, energy, pump or weather.`
-    );
-  };
-
-  const sendMessage = (question) => {
+  const sendMessage = async (question) => {
     const trimmed = question.trim();
 
-    if (!trimmed) {
+    if (!trimmed || sending) {
       return;
     }
 
-    const userMessage = {
-      id: Date.now(),
-      sender: "user",
-      text: trimmed,
-    };
+    setChatError("");
+    setSending(true);
 
-    const aiMessage = {
-      id: Date.now() + 1,
-      sender: "ai",
-      text: generateResponse(trimmed),
-    };
-
-    setMessages((current) => [
-      ...current,
-      userMessage,
-      aiMessage,
+    setMessages((previous) => [
+      ...previous,
+      {
+        type: "user",
+        text: trimmed,
+      },
     ]);
 
-    setInput("");
+    setMessage("");
+
+    try {
+      const result = await askFarmAI(
+        trimmed,
+        currentFarmContext
+      );
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          type: "assistant",
+          text: result.answer,
+        },
+      ]);
+    } catch (requestError) {
+      console.error(
+        "AI assistant error:",
+        requestError
+      );
+
+      const errorMessage =
+        requestError?.message ||
+        "The AI assistant could not respond.";
+
+      setChatError(errorMessage);
+
+      setMessages((previous) => [
+        ...previous,
+        {
+          type: "assistant",
+          text:
+            "I could not connect to the AI service right now. Please check that the FastAPI backend is running and that the AI API configuration is available.",
+        },
+      ]);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    sendMessage(input);
+    sendMessage(message);
   };
 
-  const quickQuestions = [
-    "Should I irrigate now?",
-    "What is the soil moisture?",
-    "Which energy source should I use?",
-    "How much water is available?",
-    "What is the battery level?",
-    "What is the current farm status?",
-  ];
+  const handleSuggestedQuestion = (
+    question
+  ) => {
+    sendMessage(question);
+  };
+
+  if (loading && !farm) {
+    return (
+      <div className="assistant-page">
+        <div className="dashboard-loading">
+          Loading AI farm assistant...
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !farm) {
+    return (
+      <div className="assistant-page">
+        <div className="dashboard-error">
+          <div>
+            <h3>AI assistant unavailable</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="ai-assistant-page">
-      <div className="page-heading">
+    <div className="assistant-page">
+      <section className="assistant-header">
         <div>
-          <p className="eyebrow">
-            Farm Intelligence
-          </p>
+          <div className="assistant-overline">
+            FARM INTELLIGENCE
+          </div>
 
-          <h2>AI Farm Assistant</h2>
+          <h1>AI farm assistant</h1>
 
           <p>
-            Ask questions about your farm's water,
-            energy, soil and irrigation conditions.
+            Ask questions about irrigation,
+            water, energy and current farm
+            conditions.
           </p>
         </div>
 
-        <span className="status-badge success">
-          AI Online
-        </span>
-      </div>
+        <div className="assistant-status">
+          <span
+            className={`assistant-status-dot ${
+              backendOnline
+                ? ""
+                : "offline"
+            }`}
+          />
 
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                Current Recommendation
-              </p>
-
-              <h3>
-                Farm Decision
-              </h3>
-            </div>
-
-            <span
-              className={`status-badge ${
-                decision.priority === "HIGH"
-                  ? "warning"
-                  : "success"
-              }`}
-            >
-              {decision.priority}
-            </span>
-          </div>
-
-          <div className="ai-decision">
-            <div className="decision-status">
-              <div>
-                <span className="metric-label">
-                  Irrigation
-                </span>
-
-                <strong>
-                  {decision.irrigationDecision}
-                </strong>
-              </div>
-
-              <div>
-                <span className="metric-label">
-                  Energy
-                </span>
-
-                <strong>
-                  {decision.energyDecision}
-                </strong>
-              </div>
-            </div>
-
-            <p>
-              {recommendation}
-            </p>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                Live Farm Context
-              </p>
-
-              <h3>
-                {farm.name}
-              </h3>
-            </div>
-          </div>
-
-          <div className="detail-grid">
-            <div>
-              <span className="metric-label">
-                Soil Moisture
-              </span>
-
-              <strong>
-                {soil.moisture}%
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Target
-              </span>
-
-              <strong>
-                {soil.targetMoisture}%
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Water
-              </span>
-
-              <strong>
-                {water.available} L
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Rain Probability
-              </span>
-
-              <strong>
-                {weather.rainProbability}%
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Solar
-              </span>
-
-              <strong>
-                {energy.solarGeneration} kW
-              </strong>
-            </div>
-
-            <div>
-              <span className="metric-label">
-                Battery
-              </span>
-
-              <strong>
-                {energy.batteryLevel}%
-              </strong>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section className="panel">
-        <div className="panel-header">
           <div>
-            <p className="eyebrow">
-              Conversation
-            </p>
-
-            <h3>
-              Ask the Farm Assistant
-            </h3>
+            <span>Assistant context</span>
+            <strong>{farmName}</strong>
           </div>
         </div>
+      </section>
 
-        <div className="ai-chat">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={
-                message.sender === "user"
-                  ? "chat-message user"
-                  : "chat-message ai"
-              }
-            >
-              <div className="chat-message-content">
-                <span className="metric-label">
-                  {message.sender === "user"
-                    ? "You"
-                    : "AgriPower AI"}
-                </span>
+      <section className="assistant-layout">
+        <div className="assistant-chat-panel">
+          <div className="assistant-chat-header">
+            <div>
+              <div className="assistant-avatar">
+                AI
+              </div>
+
+              <div>
+                <h2>
+                  AgriPower Assistant
+                </h2>
 
                 <p>
-                  {message.text}
+                  Farm-aware AI decision
+                  support
                 </p>
               </div>
             </div>
-          ))}
-        </div>
 
-        <form
-          className="ai-input-form"
-          onSubmit={handleSubmit}
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(event) =>
-              setInput(event.target.value)
-            }
-            placeholder="Ask about irrigation, water, energy or weather..."
-          />
-
-          <button
-            type="submit"
-            className="button primary"
-          >
-            Ask AI
-          </button>
-        </form>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">
-              Quick Questions
-            </p>
-
-            <h3>
-              Farm Questions
-            </h3>
+            <span className="assistant-live-label">
+              {sending
+                ? "Thinking..."
+                : backendOnline
+                ? "AI connected"
+                : "AI offline"}
+            </span>
           </div>
-        </div>
 
-        <div className="quick-question-grid">
-          {quickQuestions.map((question) => (
+          <div className="assistant-chat-body">
+            {messages.length === 0 ? (
+              <div className="assistant-welcome">
+                <div className="assistant-welcome-icon">
+                  AI
+                </div>
+
+                <h2>
+                  How can I help with
+                  your farm?
+                </h2>
+
+                <p>
+                  Ask me about irrigation,
+                  water, energy, solar,
+                  battery status, pump
+                  operation or current
+                  farm conditions.
+                </p>
+              </div>
+            ) : (
+              <div className="assistant-messages">
+                {messages.map(
+                  (item, index) => (
+                    <div
+                      key={`${item.type}-${index}`}
+                      className={`assistant-message ${
+                        item.type ===
+                        "user"
+                          ? "user"
+                          : "assistant"
+                      }`}
+                    >
+                      <div className="assistant-message-label">
+                        {item.type ===
+                        "user"
+                          ? "YOU"
+                          : "AGRIPOWER AI"}
+                      </div>
+
+                      <div className="assistant-message-text">
+                        {item.text}
+                      </div>
+                    </div>
+                  )
+                )}
+
+                {sending && (
+                  <div className="assistant-message assistant">
+                    <div className="assistant-message-label">
+                      AGRIPOWER AI
+                    </div>
+
+                    <div className="assistant-typing">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="assistant-suggestions">
+            <div className="assistant-suggestions-label">
+              Suggested questions
+            </div>
+
+            <div className="assistant-suggestion-list">
+              {suggestedQuestions.map(
+                (question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    disabled={sending}
+                    onClick={() =>
+                      handleSuggestedQuestion(
+                        question
+                      )
+                    }
+                  >
+                    {question}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+
+          {chatError && (
+            <div className="assistant-chat-error">
+              {chatError}
+            </div>
+          )}
+
+          <form
+            className="assistant-input-area"
+            onSubmit={handleSubmit}
+          >
+            <input
+              type="text"
+              value={message}
+              onChange={(event) =>
+                setMessage(
+                  event.target.value
+                )
+              }
+              placeholder="Ask something about your farm..."
+              disabled={sending}
+            />
+
             <button
-              type="button"
-              className="quick-question"
-              key={question}
-              onClick={() =>
-                sendMessage(question)
+              type="submit"
+              className="primary-button"
+              disabled={
+                sending ||
+                !message.trim()
               }
             >
-              {question}
+              {sending
+                ? "Thinking..."
+                : "Ask AI"}
             </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">
-              Decision Safety
-            </p>
-
-            <h3>
-              AI Decision Architecture
-            </h3>
-          </div>
+          </form>
         </div>
 
-        <div className="condition-grid">
-          <div className="condition-item">
-            <span>
-              Farm data
-            </span>
+        <aside className="assistant-context-panel">
+          <div className="assistant-context-header">
+            <div>
+              <h2>Farm context</h2>
 
-            <strong>
-              Connected
-            </strong>
+              <p>
+                Live data currently
+                available to the
+                assistant.
+              </p>
+            </div>
           </div>
 
-          <div className="condition-item">
-            <span>
-              Decision engine
-            </span>
+          <div className="assistant-context-list">
+            <div className="assistant-context-item">
+              <span>
+                Soil moisture
+              </span>
 
-            <strong>
-              Active
-            </strong>
+              <strong>
+                {soilMoisture.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="assistant-context-item">
+              <span>
+                Target moisture
+              </span>
+
+              <strong>
+                {targetMoisture.toFixed(0)}%
+              </strong>
+            </div>
+
+            <div className="assistant-context-item">
+              <span>
+                Water available
+              </span>
+
+              <strong>
+                {waterAvailable.toFixed(
+                  0
+                )}{" "}
+                L
+              </strong>
+            </div>
+
+            <div className="assistant-context-item">
+              <span>
+                Optimized water need
+              </span>
+
+              <strong>
+                {waterRequired.toFixed(
+                  1
+                )}{" "}
+                L
+              </strong>
+            </div>
+
+            <div className="assistant-context-item">
+              <span>
+                Solar generation
+              </span>
+
+              <strong>
+                {solarPower.toFixed(1)}{" "}
+                kW
+              </strong>
+            </div>
+
+            <div className="assistant-context-item">
+              <span>
+                Battery level
+              </span>
+
+              <strong>
+                {batteryLevel.toFixed(
+                  0
+                )}%
+              </strong>
+            </div>
+
+            <div className="assistant-context-item">
+              <span>
+                Pump status
+              </span>
+
+              <strong>
+                {pumpRunning
+                  ? "Running"
+                  : "Not running"}
+              </strong>
+            </div>
           </div>
 
-          <div className="condition-item">
-            <span>
-              Irrigation decision
-            </span>
-
-            <strong>
-              {decision.irrigationDecision}
-            </strong>
-          </div>
-
-          <div className="condition-item">
-            <span>
-              Energy decision
-            </span>
-
-            <strong>
-              {decision.energyDecision}
-            </strong>
-          </div>
-        </div>
-
-        <div className="insight-content">
-          <div>
-            <span className="metric-label">
-              Architecture principle
-            </span>
+          <div className="assistant-current-decision">
+            <div className="assistant-current-label">
+              CURRENT FARM DECISION
+            </div>
 
             <p>
-              Critical irrigation and energy decisions
-              are calculated from farm conditions by the
-              decision engine. The AI assistant explains
-              those decisions to the farmer rather than
-              directly controlling critical operations.
+              {intelligence?.recommendation
+                ?.action ||
+                "Monitoring current farm conditions."}
             </p>
+
+            <div className="assistant-decision-details">
+              <span>
+                Irrigation:{" "}
+                {intelligence
+                  ?.recommendation
+                  ?.irrigation ||
+                  "Unavailable"}
+              </span>
+
+              <span>
+                Energy:{" "}
+                {intelligence
+                  ?.recommendation
+                  ?.energySource ||
+                  "Unavailable"}
+              </span>
+
+              <span>
+                Priority:{" "}
+                {intelligence
+                  ?.recommendation
+                  ?.priority ||
+                  "Unavailable"}
+              </span>
+            </div>
           </div>
-        </div>
+
+          <div className="assistant-context-note">
+            The AI explains live farm data
+            and deterministic decision-engine
+            results. Critical irrigation and
+            energy decisions remain controlled
+            by the farm decision engine.
+          </div>
+        </aside>
       </section>
     </div>
   );

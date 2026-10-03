@@ -1,382 +1,427 @@
+import React from "react";
 import { useFarm } from "../context/FarmContext";
-import { calculateFarmDecision } from "../utils/decisionEngine";
 
 function Irrigation() {
   const {
-    data,
-    setPumpRunning,
+    farm,
+    intelligence,
+    loading,
+    error,
+    updateFarm,
+    automaticPumpControl,
   } = useFarm();
 
-  const {
-    farm,
-    soil,
-    water,
-    weather,
-    energy,
-    pump,
-  } = data;
+  if (loading && !farm) {
+    return (
+      <div className="irrigation-page">
+        <div className="dashboard-loading">
+          Loading irrigation system...
+        </div>
+      </div>
+    );
+  }
 
-  const decision = calculateFarmDecision(data);
+  if (error && !farm) {
+    return (
+      <div className="irrigation-page">
+        <div className="dashboard-error">
+          <div>
+            <h3>Irrigation unavailable</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const moistureProgress =
-    soil.targetMoisture > 0
-      ? Math.min(
-          (soil.moisture /
-            soil.targetMoisture) *
-            100,
-          100
-        )
-      : 0;
+  const soilMoisture = Number(
+    farm?.soil_moisture ??
+      farm?.soilMoisture ??
+      0
+  );
 
-  const canStart =
-    decision.irrigationDecision === "IRRIGATE" &&
-    decision.energyDecision !== "UNAVAILABLE";
+  const waterLevel = Number(
+    farm?.water_level ??
+      farm?.waterLevel ??
+      0
+  );
 
-  const handlePumpToggle = () => {
-    if (!pump.running && !canStart) {
-      return;
+  const pumpStatus =
+    farm?.pump_status ??
+    farm?.pumpStatus ??
+    farm?.pump_on ??
+    farm?.pumpOn ??
+    false;
+
+  const recommendation =
+    intelligence?.recommendation;
+
+  const irrigationRecommendation =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.irrigation
+      : null;
+
+  const energyRecommendation =
+    typeof recommendation === "object" &&
+    recommendation !== null
+      ? recommendation.energySource
+      : null;
+
+  const recommendationAction =
+    typeof recommendation === "string"
+      ? recommendation
+      : recommendation?.action ||
+        "No irrigation action is currently required.";
+
+  const handlePumpToggle = async () => {
+    try {
+      await updateFarm({
+        pump_status: !pumpStatus,
+      });
+    } catch (err) {
+      console.error(
+        "Failed to update pump status:",
+        err
+      );
     }
-
-    setPumpRunning(!pump.running);
   };
 
+  const handleAutomaticControl = async () => {
+    try {
+      await automaticPumpControl();
+    } catch (err) {
+      console.error(
+        "Automatic pump control failed:",
+        err
+      );
+    }
+  };
+
+  const soilStatus =
+    soilMoisture < 30
+      ? "Very dry"
+      : soilMoisture < 45
+      ? "Dry"
+      : soilMoisture < 70
+      ? "Healthy"
+      : "Wet";
+
+  const soilStatusClass =
+    soilMoisture < 30
+      ? "status-danger"
+      : soilMoisture < 45
+      ? "status-warning"
+      : "status-success";
+
+  const waterStatus =
+    waterLevel < 25
+      ? "Critical"
+      : waterLevel < 50
+      ? "Low"
+      : waterLevel < 75
+      ? "Moderate"
+      : "Healthy";
+
+  const waterStatusClass =
+    waterLevel < 25
+      ? "status-danger"
+      : waterLevel < 50
+      ? "status-warning"
+      : "status-success";
+
   return (
-    <div>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">
-            Water Operations
-          </p>
-
-          <h2>
-            Irrigation Control
-          </h2>
-
-          <p>
-            Intelligent irrigation timing based on
-            soil, rain, water and energy conditions.
-          </p>
-        </div>
-
-        <span
-          className={`status-badge ${
-            decision.irrigationDecision ===
-            "IRRIGATE"
-              ? "warning"
-              : "success"
-          }`}
-        >
-          {decision.irrigationDecision}
-        </span>
-      </div>
-
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-header">
+    <div className="irrigation-page">
+      <section className="irrigation-overview-grid">
+        <div className="irrigation-control-card">
+          <div className="irrigation-control-header">
             <div>
-              <p className="eyebrow">
-                IRRIGATION DECISION
+              <div className="irrigation-overline">
+                IRRIGATION CONTROL
+              </div>
+
+              <h1>
+                Smart water management
+              </h1>
+
+              <p>
+                Use soil conditions and available
+                water to operate irrigation efficiently.
               </p>
-
-              <h3>
-                Current Recommendation
-              </h3>
-            </div>
-          </div>
-
-          <div className="ai-decision">
-            <div className="decision-status">
-              <div>
-                <span className="metric-label">
-                  Decision
-                </span>
-
-                <strong>
-                  {decision.irrigationDecision}
-                </strong>
-              </div>
-
-              <div>
-                <span className="metric-label">
-                  Priority
-                </span>
-
-                <strong>
-                  {decision.priority}
-                </strong>
-              </div>
-            </div>
-
-            <p>
-              {decision.reason}
-            </p>
-
-            <div className="decision-grid">
-              <div>
-                <span className="metric-label">
-                  Moisture Gap
-                </span>
-
-                <strong>
-                  {decision.moistureGap}%
-                </strong>
-              </div>
-
-              <div>
-                <span className="metric-label">
-                  Rain Risk
-                </span>
-
-                <strong>
-                  {weather.rainProbability}%
-                </strong>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                LIVE CONTROL
-              </p>
-
-              <h3>
-                Pump Controller
-              </h3>
             </div>
 
             <span
               className={`status-badge ${
-                pump.running
-                  ? "warning"
-                  : "success"
+                pumpStatus
+                  ? "status-success"
+                  : "status-neutral"
               }`}
             >
-              {pump.running
-                ? "Running"
-                : "Standby"}
+              {pumpStatus
+                ? "PUMP RUNNING"
+                : "PUMP IDLE"}
             </span>
           </div>
 
-          <div className="metric-large">
-            {energy.pumpPower} kW
-          </div>
-
-          <p>
-            {pump.running
-              ? "The irrigation pump is currently running."
-              : "The irrigation pump is currently stopped."}
-          </p>
-
-          <div className="form-actions">
-            <button
-              type="button"
-              className={
-                pump.running
-                  ? "button danger"
-                  : "button primary"
-              }
-              onClick={handlePumpToggle}
-              disabled={
-                !pump.running && !canStart
-              }
+          <div className="irrigation-pump-display">
+            <div
+              className={`irrigation-pump-circle ${
+                pumpStatus ? "active" : ""
+              }`}
             >
-              {pump.running
-                ? "Stop Pump"
-                : "Start Irrigation"}
-            </button>
-          </div>
+              <div className="irrigation-pump-state">
+                {pumpStatus ? "ON" : "OFF"}
+              </div>
 
-          {!pump.running && !canStart && (
-            <div className="setup-message">
-              <strong>
-                Pump start blocked
-              </strong>
-
-              <p>
-                The decision engine currently does
-                not recommend starting irrigation or
-                a suitable energy source is unavailable.
-              </p>
+              <div className="irrigation-pump-label">
+                Irrigation pump
+              </div>
             </div>
-          )}
-        </section>
-      </div>
 
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">
-              SOIL MOISTURE
-            </p>
+            <div className="irrigation-control-actions">
+              <button
+                type="button"
+                className="primary-button"
+                onClick={handlePumpToggle}
+              >
+                {pumpStatus
+                  ? "Stop pump"
+                  : "Start pump"}
+              </button>
 
-            <h3>
-              Moisture Target
-            </h3>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleAutomaticControl}
+              >
+                Run automatic control
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="irrigation-decision-card">
+          <div className="irrigation-card-label">
+            AI WATER DECISION
           </div>
 
-          <span className="status-badge info">
-            {soil.moisture}%
-          </span>
-        </div>
+          <div className="irrigation-decision-title">
+            {recommendationAction}
+          </div>
 
-        <div className="metric-large">
-          {soil.moisture}%
-        </div>
+          <div className="irrigation-decision-list">
+            <div>
+              <span>Recommended irrigation</span>
 
-        <p>
-          Target moisture: {soil.targetMoisture}%.
-          Current progress toward target is{" "}
-          {Math.round(moistureProgress)}%.
-        </p>
+              <strong>
+                {irrigationRecommendation
+                  ? String(
+                      irrigationRecommendation
+                    )
+                  : "Monitoring"}
+              </strong>
+            </div>
 
-        <div className="progress-bar">
-          <div
-            className="progress-value"
-            style={{
-              width: `${moistureProgress}%`,
-            }}
-          />
+            <div>
+              <span>Preferred energy</span>
+
+              <strong>
+                {energyRecommendation
+                  ? String(energyRecommendation)
+                  : "Optimizing"}
+              </strong>
+            </div>
+          </div>
         </div>
       </section>
 
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                WATER AVAILABILITY
-              </p>
+      <section className="irrigation-metrics-grid">
+        <div className="irrigation-metric-card">
+          <div className="irrigation-metric-top">
+            <span>Soil moisture</span>
 
-              <h3>
-                Irrigation Resource
-              </h3>
-            </div>
+            <span
+              className={`status-badge ${soilStatusClass}`}
+            >
+              {soilStatus}
+            </span>
           </div>
 
-          <div className="detail-grid">
-            <div>
-              <span>
-                Available
-              </span>
-
-              <strong>
-                {water.available} L
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Required
-              </span>
-
-              <strong>
-                {water.required} L
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Source
-              </span>
-
-              <strong>
-                {water.waterSource}
-              </strong>
-            </div>
-
-            <div>
-              <span>
-                Capacity
-              </span>
-
-              <strong>
-                {water.reservoirCapacity} L
-              </strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">
-                ENERGY SELECTION
-              </p>
-
-              <h3>
-                Pump Energy Source
-              </h3>
-            </div>
+          <div className="irrigation-metric-value">
+            {soilMoisture.toFixed(0)}
+            <span>%</span>
           </div>
 
-          <div className="insight-content">
-            <strong>
-              {decision.energyDecision}
-            </strong>
+          <div className="irrigation-meter">
+            <div
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.max(0, soilMoisture)
+                )}%`,
+              }}
+            />
+          </div>
+
+          <p>
+            Current estimated moisture level in
+            the active field.
+          </p>
+        </div>
+
+        <div className="irrigation-metric-card">
+          <div className="irrigation-metric-top">
+            <span>Water reserve</span>
+
+            <span
+              className={`status-badge ${waterStatusClass}`}
+            >
+              {waterStatus}
+            </span>
+          </div>
+
+          <div className="irrigation-metric-value">
+            {waterLevel.toFixed(0)}
+            <span>%</span>
+          </div>
+
+          <div className="irrigation-meter">
+            <div
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.max(0, waterLevel)
+                )}%`,
+              }}
+            />
+          </div>
+
+          <p>
+            Available water for irrigation
+            operations.
+          </p>
+        </div>
+      </section>
+
+      <section className="irrigation-panel">
+        <div className="irrigation-panel-header">
+          <div>
+            <h2>Water optimization logic</h2>
 
             <p>
-              {decision.energyReason}
+              The decision engine combines field
+              conditions with available resources.
             </p>
-          </div>
-        </section>
-      </div>
-
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <p className="eyebrow">
-              DECISION FACTORS
-            </p>
-
-            <h3>
-              Why the system made this decision
-            </h3>
           </div>
         </div>
 
-        <div className="condition-grid">
-          <div className="condition-item">
-            <span>
-              Soil
-            </span>
+        <div className="irrigation-logic-grid">
+          <div className="irrigation-logic-step">
+            <div className="irrigation-step-number">
+              01
+            </div>
 
+            <div>
+              <h3>Sense</h3>
+
+              <p>
+                Monitor soil moisture and water
+                availability.
+              </p>
+            </div>
+          </div>
+
+          <div className="irrigation-logic-line" />
+
+          <div className="irrigation-logic-step">
+            <div className="irrigation-step-number">
+              02
+            </div>
+
+            <div>
+              <h3>Decide</h3>
+
+              <p>
+                Determine whether irrigation is
+                required.
+              </p>
+            </div>
+          </div>
+
+          <div className="irrigation-logic-line" />
+
+          <div className="irrigation-logic-step">
+            <div className="irrigation-step-number">
+              03
+            </div>
+
+            <div>
+              <h3>Optimize</h3>
+
+              <p>
+                Select the appropriate irrigation
+                and energy strategy.
+              </p>
+            </div>
+          </div>
+
+          <div className="irrigation-logic-line" />
+
+          <div className="irrigation-logic-step">
+            <div className="irrigation-step-number">
+              04
+            </div>
+
+            <div>
+              <h3>Act</h3>
+
+              <p>
+                Control the pump and continuously
+                monitor the result.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="irrigation-panel">
+        <div className="irrigation-panel-header">
+          <div>
+            <h2>Current operating conditions</h2>
+
+            <p>
+              Live values used by the farm
+              intelligence system.
+            </p>
+          </div>
+        </div>
+
+        <div className="irrigation-condition-grid">
+          <div>
+            <span>Soil moisture</span>
             <strong>
-              {soil.moisture}%
+              {soilMoisture.toFixed(0)}%
             </strong>
           </div>
 
-          <div className="condition-item">
-            <span>
-              Rain
-            </span>
-
+          <div>
+            <span>Water availability</span>
             <strong>
-              {weather.rainProbability}%
+              {waterLevel.toFixed(0)}%
             </strong>
           </div>
 
-          <div className="condition-item">
-            <span>
-              Water
-            </span>
-
+          <div>
+            <span>Pump state</span>
             <strong>
-              {decision.waterAvailable
-                ? "Available"
-                : "Insufficient"}
+              {pumpStatus ? "ON" : "OFF"}
             </strong>
           </div>
 
-          <div className="condition-item">
-            <span>
-              Energy
-            </span>
-
+          <div>
+            <span>Control mode</span>
             <strong>
-              {decision.energyDecision}
+              AI assisted
             </strong>
           </div>
         </div>
